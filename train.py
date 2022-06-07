@@ -369,6 +369,11 @@ if __name__ == "__main__":
     parser.add_argument("-restart", action="store_true",
                         help="If True, delete existing model in models/model_name before starting training")
 
+    # AV pipeline
+    parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT'], default='ResNet50')
+    parser.add_argument("--offloading", type=str, help="Offloading mechanism", choices=['direct', 'bottleneck'], default='direct')
+    parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier'], default='PX2')
+
     params = vars(parser.parse_args())
 
     # Remove a couple of parameters that we dont want to log
