@@ -13,6 +13,7 @@ import numpy as np
 from hud import HUD
 from planner import RoadOption, compute_route_waypoints
 from wrappers import *
+from offloading_utils import *
 import math
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -53,7 +54,7 @@ class CarlaLapEnv(gym.Env):
                  viewer_res=(1280, 720), obs_res=(1280, 720),
                  reward_fn=None, encode_state_fn=None, 
                  synchronous=True, fps=30, action_smoothing=0.9,
-                 start_carla=True, apply_filter=False, obstacle=False, penalize_steer_diff=False, penalize_dist_obstacle=False, gaussian=False, track=1, mode='train'):
+                 start_carla=True, apply_filter=False, obstacle=False, penalize_steer_diff=False, penalize_dist_obstacle=False, gaussian=False, track=1, params=None, mode='train'):
         """
             Initializes a gym-like environment that can be used to interact with CARLA.
 
@@ -109,6 +110,16 @@ class CarlaLapEnv(gym.Env):
         self.steer_diff_avg         = 0
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
+
+        self.energy_monitor = EnergyMonitor(params)
+        self.throughput_prober = UploadThroughputSampler(params)
+
+        # print(self.energy_monitor.__dict__)
+
+        # exit(0)
+
+        # there should be another function to check the actions alongside whether the deadline is met
+
         if apply_filter:
             self.safety_filter = SafetyFilter()
         # Start CARLA from CARLA_ROOT
@@ -239,7 +250,7 @@ class CarlaLapEnv(gym.Env):
                                    on_invasion_fn=lambda e: self._on_invasion(e))
 
             # Create hud
-            self.hud = HUD(width, height)       # OD: I'll have to extend this to include the energy consumption, offloading action, etc.
+            self.hud = HUD(width, height)  
             self.hud.set_vehicle(self.vehicle)
             self.world.on_tick(self.hud.on_world_tick)  # OD: I'm not sure what this does
 
@@ -290,6 +301,11 @@ class CarlaLapEnv(gym.Env):
         self.vehicle.control.throttle = float(0.0)
         #self.vehicle.control.brake = float(0.0)
         self.vehicle.tick()
+
+        self.energy = 0.0
+        self.action = 0
+        self.tu = 0
+
         #if is_training:
         #    # Teleport vehicle to last checkpoint
         #    waypoint, _ = self.route_waypoints[self.checkpoint_waypoint_index % len(self.route_waypoints)]
@@ -326,7 +342,7 @@ class CarlaLapEnv(gym.Env):
                     spawn_idx = random.randint(20, 30)
 
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
-                spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)        #OD: does that mean it comes facing it?
+                spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
                 if (not is_training) and gaussian:
                     spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                     spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
@@ -452,7 +468,13 @@ class CarlaLapEnv(gym.Env):
             "Distance traveled: % 7d m"    % self.distance_traveled,
             "Center deviance:   % 7.2f m"  % self.distance_from_center,
             "Avg center dev:    % 7.2f m"  % (self.center_lane_deviation / self.step_count),
-            "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count)
+            "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
+            "",
+            "Action:              % 1.0f"  % (self.action),
+            "Current Ergy:    %7.2f mJ"  % (self.energy),
+            "Local Ergy:      %7.2f mJ"  % (self.energy_monitor.local_energy),
+            "Tx Ergy:         %7.2f mJ"  % (self.energy_monitor.total_energy),
+            "Throughput      %7.2f Mbps"   % (self.tu)
         ])
 
         # Blit image from spectator camera
@@ -520,6 +542,10 @@ class CarlaLapEnv(gym.Env):
         filter_applied = False
         xi = self.xi
         r = self.r
+
+        self.tu = self.throughput_prober.sample(1)                           # list of throughputs
+        self.action, self.energy = self.energy_monitor.select_best_energy_action(self.tu)        # Best action/energy pair based on througphut
+
         if action is not None:
             steer, throttle = [float(a) for a in action]
             #steer, throttle, brake = [float(a) for a in action]

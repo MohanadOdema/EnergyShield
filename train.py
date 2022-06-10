@@ -54,6 +54,19 @@ def train(params, start_carla=True, restart=False):
     test                        = params["test"]
     gaussian                    = params["gaussian"]
     track                       = params["track"]
+
+
+    if 'mimic' not in params['arch'] and params["offload_policy"] == 'bottleneck':
+        if params['arch'] == 'ResNet18':
+            params['arch'] = 'ResNet18_mimic'
+        elif params['arch'] == 'ResNet50':
+            params['arch'] = 'ResNet50_mimic'
+        elif params['arch'] == 'DenseNet169':
+            params['arch'] = 'DenseNet169_mimic'
+        else:
+            raise ValueError("No mimic architecture supported for the selected architecture!")
+
+
     # Set seeds
     if isinstance(seed, int):
         tf.random.set_seed(seed)
@@ -90,7 +103,8 @@ def train(params, start_carla=True, restart=False):
                    penalize_steer_diff=penalize_steer_diff,
                    penalize_dist_obstacle=penalize_dist_obstacle,
                    gaussian=gaussian,
-                   track=track)
+                   track=track,
+                   params=params)
     if isinstance(seed, int):
         env.seed(seed)
     best_eval_reward = -float("inf")
@@ -369,10 +383,19 @@ if __name__ == "__main__":
     parser.add_argument("-restart", action="store_true",
                         help="If True, delete existing model in models/model_name before starting training")
 
-    # AV pipeline
-    parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT'], default='ResNet50')
-    parser.add_argument("--offloading", type=str, help="Offloading mechanism", choices=['direct', 'bottleneck'], default='direct')
-    parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier'], default='PX2')
+    # AV pipeline Offloading
+    parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet50')
+    parser.add_argument("--offload_policy", type=str, help="Offloading mechanism", choices=['local', 'direct', 'bottleneck'], default='direct')
+    parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
+    parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
+    parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
+    parser.add_argument("--deadline", type=int, help="slack time in ms to invoke fail-safe", default=100)
+    parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='720p')
+    parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='LTE')
+    parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead alongside data transfer")
+    parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
+    parser.add_argument("--noise_addition", type=str, help="method to add noise to channel estimates", choices=[None, 'markov', 'gaussian'], default=None)
+    parser.add_argument("--gaussian_var", type=float, default=5, help="gaussian variance if gaussian noise is to be added to throughput")
 
     params = vars(parser.parse_args())
 
