@@ -111,7 +111,7 @@ class CarlaLapEnv(gym.Env):
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
 
-        self.energy_monitor = EnergyMonitor(params)
+        self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)
 
         # print(self.energy_monitor.__dict__)
@@ -187,7 +187,7 @@ class CarlaLapEnv(gym.Env):
 
             if self.synchronous:
                 settings = self.world.get_settings()
-                settings.fixed_delta_seconds = 0.01
+                settings.fixed_delta_seconds = 0.01     # Fixed time step in the simulation environment
                 settings.synchronous_mode = True
                 self.world.apply_settings(settings)
 
@@ -303,8 +303,10 @@ class CarlaLapEnv(gym.Env):
         self.vehicle.tick()
 
         self.energy = 0.0
+        self.off_latency = 0.0      # If the current policy is local it translates to the local execution latency
         self.action = 0
-        self.tu = 0
+        self.probe_tu = 0
+        self.delta_tu = 0
 
         #if is_training:
         #    # Teleport vehicle to last checkpoint
@@ -471,10 +473,11 @@ class CarlaLapEnv(gym.Env):
             "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
             "",
             "Action:              % 1.0f"  % (self.action),
-            "Current Ergy:    %7.2f mJ"  % (self.energy),
-            "Local Ergy:      %7.2f mJ"  % (self.energy_monitor.local_energy),
-            "Tx Ergy:         %7.2f mJ"  % (self.energy_monitor.total_energy),
-            "Throughput      %7.2f Mbps"   % (self.tu)
+            "Current Ergy:      %7.2f mJ"  % (self.energy),
+            "Offloading Latency: %7.2f ms" % (self.off_latency),
+            "Local Ergy:        %7.2f mJ"  % (self.energy_monitor.local_energy),
+            "Tx Ergy:           %7.2f mJ"  % (self.energy_monitor.total_energy),
+            "Throughput        %7.2f Mbps" % (self.tu)
         ])
 
         # Blit image from spectator camera
@@ -543,8 +546,12 @@ class CarlaLapEnv(gym.Env):
         xi = self.xi
         r = self.r
 
-        self.tu = self.throughput_prober.sample(1)                           # list of throughputs
-        self.action, self.energy = self.energy_monitor.select_best_energy_action(self.tu)        # Best action/energy pair based on througphut
+        self.probe_tu, self.delta_tu = self.throughput_prober.sample(1)                           # list of throughputs
+        self.energy_monitor.determine_offloading_decision(self.probe_tu, self.delta_tu)      
+
+        self.logger()   
+
+        exit(0)  
 
         if action is not None:
             steer, throttle = [float(a) for a in action]
@@ -585,7 +592,7 @@ class CarlaLapEnv(gym.Env):
         # Get most recent observation and viewer image
         self.observation = self._get_observation()
         self.viewer_image = self._get_viewer_image()
-        encoded_state = self.encode_state_fn(self)      # OD: I need to see how they retrieve steer, throttle, and etc as they are not directly in self
+        encoded_state = self.encode_state_fn(self)      
 
         # Get vehicle transform
         transform = self.vehicle.get_transform()
@@ -776,6 +783,20 @@ class CarlaLapEnv(gym.Env):
 
     def _set_viewer_image(self, image):
         self.viewer_image_buffer = image
+
+    def logger(self):
+        print('-'*80)
+        print(f"Architecture: {self.energy_monitor.arch}, Offloading policy: {self.energy_monitor.offload_policy}")
+        print(f"local_latency: {self.energy_monitor.full_local_latency}, local_energy: {self.energy_monitor.full_local_energy}")
+        print(f"Probe throughput: {self.probe_tu}, Delta throughput: {self.delta_tu}")
+        print(f"Selected Action: {self.energy_monitor.selected_action}, Correct Action: {self.energy_monitor.correct_action}")
+        print(f"probe off latency: {self.energy_monitor.probe_off_latency}, probe off energy: {self.energy_monitor.probe_off_energy}")
+        print(f"actual off latency: {self.energy_monitor.actual_off_latency}, actual off energy: {self.energy_monitor.actual_off_energy}")
+        print(f"Exp latency: {self.energy_monitor.exp_total_latency}, Exp energy: {self.energy_monitor.exp_total_energy}")
+        print(f"Missed_deadline_flag: {self.energy_monitor.missed_deadline_flag}, Missed_deadlines: {self.energy_monitor.missed_deadlines}")
+        print(f"Successive interrupts: {self.energy_monitor.succ_interrupts}, max_succ_interrupts: {self.energy_monitor.max_succ_interrupts}")
+        print(f"Missed offloads: {self.energy_monitor.missed_offloads}, misguided energy: {self.energy_monitor.misguided_energy}")
+        print('-'*80)
 
 def reward_fn(env):
     early_termination = False

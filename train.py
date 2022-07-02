@@ -56,7 +56,7 @@ def train(params, start_carla=True, restart=False):
     track                       = params["track"]
 
 
-    if 'mimic' not in params['arch'] and params["offload_policy"] == 'bottleneck':
+    if 'mimic' not in params['arch'] and params["offload_position"] == 'bottleneck':
         if params['arch'] == 'ResNet18':
             params['arch'] = 'ResNet18_mimic'
         elif params['arch'] == 'ResNet50':
@@ -184,7 +184,7 @@ def train(params, start_carla=True, restart=False):
             route, current_waypoint_index = None, None
             while not terminal_state:
                 states, taken_actions, values, rewards, dones = [], [], [], [], []
-                for _ in range(horizon):                                            # OD: number of steps to simulate within training step?
+                for _ in range(horizon):                                            # number of steps to train upon the agent (128)
                     action, value = model.predict(state, write_to_summary=True)
 
                     # Perform action
@@ -239,7 +239,7 @@ def train(params, start_carla=True, restart=False):
                 # Calculate last value (bootstrap value)
                 _, last_values = model.predict(state) # []
 
-                # Compute GAE
+                # Compute GAE -- Generalized Advantage Estimator
                 advantages = compute_gae(rewards, values, last_values, dones, discount_factor, gae_lambda)
                 returns = advantages + values
                 advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
@@ -385,17 +385,23 @@ if __name__ == "__main__":
 
     # AV pipeline Offloading
     parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet50')
-    parser.add_argument("--offload_policy", type=str, help="Offloading mechanism", choices=['local', 'direct', 'bottleneck'], default='direct')
+    parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', 'bottleneck'], default='direct')
+    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe'], default='direct')    
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
-    parser.add_argument("--deadline", type=int, help="slack time in ms to invoke fail-safe", default=100)
+    parser.add_argument("--deadline", type=int, help="time window", default=100)
     parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='720p')
     parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='LTE')
-    parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead alongside data transfer")
+    parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
-    parser.add_argument("--noise_addition", type=str, help="method to add noise to channel estimates", choices=[None, 'markov', 'gaussian'], default=None)
-    parser.add_argument("--gaussian_var", type=float, default=5, help="gaussian variance if gaussian noise is to be added to throughput")
+    parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
+
+    parser.add_argument("--record_for_analysis", action='store_true', help='Record energy measurements needed for analysis')
+    # What is the tie breaker? if deadline is not met, then we revert back to local directly?
+    # Metrics to record (energy, missed deadlines, longest accumulated latency (99th percentile?))
+    # Maybe even do with sudden and no interrupts?
+    # shall I do like 50-100 episodes initially, and then average over the entire thingy?
 
     params = vars(parser.parse_args())
 

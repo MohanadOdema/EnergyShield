@@ -72,73 +72,148 @@ local_execution_power = {"PX2": 7,      # W
                         "Xavier": None,
                         "Nano": 2}      # W
 
-# Should I add communication establishment overhead?
-
 alphaUP = {"WiFi": 283.17, "LTE": 438.39, "3G": 868.98}             # mW/Mbps
 alphaDOWN = {"WiFi": 137.01, "LTE": 51.97, "3G": 122.12}            # mW/Mbps
 beta = {"WiFi": 132.86, "LTE": 1288.04, "3G": 817.88}               # mW/Mbps
 
 
-class EnergyMonitor():
+class OffloadingManager():
     def __init__(self, params):
         self.arch                   = params["arch"]
+        self.offload_position       = params["offload_position"]
         self.offload_policy         = params["offload_policy"]
         self.HW                     = params["HW"]
         self.deadline               = params["deadline"]
-        self.noise_addition         = params["noise_addition"]
         self.img_resolution         = params["img_resolution"]
         self.comm_tech              = params["comm_tech"]
         self.conn_overhead          = params["conn_overhead"]
         self.bottleneck_ch          = params["bottleneck_ch"]
         self.bottleneck_quant       = params["bottleneck_quant"]
+        self.scale                  = params["noise_scale"]
 
         self.input_size             = self.compute_input_size()
         self.bottleneck_size        = self.compute_bottleneck_size()
         self.full_local_latency     = full_local_latency[self.img_resolution][self.HW][self.arch]
-        if self.offload_policy == 'bottleneck':
-            self.bottleneck_latency     = bottleneck_local_latency[self.img_resolution][self.HW][self.arch]
+        if self.offload_position    == 'bottleneck':
+            self.head_latency       = bottleneck_local_latency[self.img_resolution][self.HW][self.arch]
+        elif self.offload_position  == 'direct':
+            self.head_latency       = 0
         self.local_power            = local_execution_power[self.HW]
-        self.ret_size               = None
-        self.local_energy           = self.local_power * self.full_local_latency
+        self.ret_size               = None             # return size from the control outputs
+        self.full_local_energy      = self.local_power * self.full_local_latency
 
+        self.missed_deadline_flag   = False
+        self.missed_deadlines       = 0         # For both fail-safe and missed deadlines 
+        self.succ_interrupts        = 0
+        self.max_succ_interrupts    = 0 
+        self.missed_offloads        = 0
+        self.misguided_energy       = 0
 
-    def estimate_energy(self, tu, td=None):            # Estimate energy based on probed Upload and Download throughput in Mbps        
-        if self.offload_policy == 'local':
-            self.total_energy = self.local_energy
-        elif self.offload_policy == 'direct':
-            local_energy = 0
-            upload_latency = self.estimate_comm_latency(self.input_size, tu)
-            upload_power = self.compute_upload_data_transfer_power(tu, self.comm_tech)
-            if self.ret_size is not None and td is not None:
-                download_latency = self.estimate_comm_latency(self.ret_size, td)
-                download_power = self.estimate_download_data_transfer_power(td, self.comm_tech)
-            else:
-                download_latency = 0
-                download_power = 0
-            self.total_energy = local_energy + (upload_latency*upload_power + download_latency*download_power) / 1000       # mJ
-        elif self.offload_policy.startswith('bottleneck'):
-            local_energy = self.local_power * self.bottleneck_latency
-            upload_latency = self.estimate_comm_latency(self.bottleneck_size, tu)
-            upload_power = self.compute_upload_data_transfer_power(tu, self.comm_tech)
-            if self.ret_size is not None and td is not None:
-                download_latency = self.estimate_comm_latency(self.ret_size, td)
-                download_power = self.estimate_download_data_transfer_power(td, self.comm_tech)
-            else:
-                download_latency = 0
-                download_power = 0            
-            self.total_energy = local_energy + (upload_latency*upload_power + download_latency*download_power) / 1000       # mJ
+        self.probe_off_latency      = None
+        self.probe_off_energy       = None
+        self.actual_off_latency     = None
+        self.actual_off_energy      = None
 
+    def reset(self):
+        self.missed_deadline_flag   = False
+        self.missed_deadlines       = 0         # For both fail-safe and missed deadlines 
+        self.succ_interrupts        = 0
+        self.max_succ_interrupts    = 0 
+        self.missed_offloads        = 0
+        self.misguided_energy       = 0
 
-    def select_best_energy_action(self, tu, td=None):   # Select the operational mode based on the energy estimates without violating latency
-        # Need to account for latency constraints --> can have it based on the local execution latency
-        self.estimate_energy(tu[0])
+    def determine_offloading_decision(self, probe_tu, delta_tu, td=None, k=1):  
+        # Select the operational mode based on the energy and latency estimates
+        # k: number of windows successively affected by wireless uncertainty
+        # 0 for local, 1 for offload
+
+        # Ideal performance given instantenous throughput
+        self.actual_off_latency, self.actual_off_energy = self.evaluate(probe_tu[0] + delta_tu[0])     # true offloading estimates
+        self.correct_action = self.select_offloading_action('ideal')                                   # ideally should offload or not
         if self.offload_policy == "local":
-            return (0, self.local_energy)                    
+            self.selected_action = 0
+        elif 'offload' in self.offload_policy:              # static offloading policies
+            self.probe_off_latency, self.probe_off_energy = self.evaluate(probe_tu[0])  # estimate based on probed throughput
+            self.selected_action = 1 
+        else:                                               # adaptive offloading policies
+            self.probe_off_latency, self.probe_off_energy = self.evaluate(probe_tu[0])     
+            self.selected_action = self.select_offloading_action('probe')
+        self.record_violations(probe_tu[0], delta_tu[0])
+
+    def select_offloading_action(self, estimate):
+        if estimate.startswith('probe'): 
+            latency, energy = self.probe_off_latency, self.probe_off_energy
         else:
-            if self.total_energy < self.local_energy:
-                return(1, self.total_energy)
-            else: 
-                return(0, self.local_energy)
+            latency, energy = self.actual_off_latency, self.actual_off_energy
+        if 'failsafe' not in self.offload_policy:
+            if (energy < self.full_local_energy) and (latency < self.deadline):
+                return 1 
+        else:
+            if (energy < self.full_local_energy) and (latency < (self.deadline - (self.full_local_latency - self.head_latency))):     # Leaving room for tail latency
+                return 1
+        return 0
+
+    def evaluate(self, tu, td=None):   
+        # Estimate energy based on Upload and Download throughput in Mbps   
+        assert self.full_local_latency <= self.deadline              
+        # if self.offload_policy == 'local':
+        #     return self.full_local_latency, self.full_local_energy
+        return self.offload_overheads(tu, td)
+
+    def record_violations(self, probe_tu, delta_tu):
+        if self.selected_action > self.correct_action:          # Wrong offload decision
+            if self.deadline_missed(probe_tu+delta_tu):          # check if the violation is due to latency or energy given the action is offload
+                self.missed_deadline_flag = True
+                self.missed_deadlines += 1
+                self.succ_interrupts += 1
+            else:                                         # wrong energy estimates or static offloading violation
+                self.missed_deadline_flag = False                                              
+                self.succ_interrupts = 0
+                self.misguided_energy += 1                # wrong decision due to energy
+        else:
+            self.missed_deadline_flag = False
+            self.succ_interrupts = 0
+            if self.selected_action < self.correct_action:      # if better energy from offload
+                self.missed_offloads += 1
+        self.exp_total_latency, self.exp_total_energy = self.remedy(probe_tu, delta_tu)         # Changes in TX overhead or failsafe invocation
+        self.max_succ_interrupts = max(self.max_succ_interrupts, self.succ_interrupts)
+
+    def deadline_missed(self, tu):
+        upload_latency = self.compute_comm_latency(tu)
+        if 'failsafe' in self.offload_policy:
+            if self.full_local_latency + upload_latency > self.deadline:
+                return True
+        else: 
+            if self.head_latency + upload_latency > self.deadline:
+                return True 
+        # assert self.probe_off_energy < self.full_local_energy         # cause i can have static offload policy
+        return False
+
+    def remedy(self, probe_tu, delta_tu):
+        upload_power = self.compute_upload_data_transfer_power(probe_tu + delta_tu, self.comm_tech)
+        upload_latency = self.compute_comm_latency(probe_tu + delta_tu)
+        if self.selected_action == 0:
+            total_latency = self.full_local_latency
+            total_energy = self.full_local_energy
+        elif 'failsafe' in self.offload_policy and (self.head_latency + upload_latency) > (self.deadline - (self.full_local_latency - self.head_latency)):         # fail-safe invoked
+            total_latency = self.deadline               # cap
+            total_energy = self.full_local_latency * self.local_power + ((self.deadline - self.full_local_latency)*upload_power) / 1000 
+        else:
+            total_latency = self.head_latency + upload_latency
+            if total_latency > self.deadline:
+                upload_latency = self.deadline - self.head_latency       
+                total_latency = self.deadline           # cap
+            total_energy = self.head_latency*self.local_power + (upload_latency*upload_power) / 1000
+        return total_latency, total_energy
+
+    def compute_comm_latency(self, tu):
+        if self.offload_position == 'direct':
+            upload_latency = self.estimate_comm_latency(self.input_size, tu)
+        elif self.offload_position == 'bottleneck':
+            upload_latency = self.estimate_comm_latency(self.bottleneck_size, tu)
+        else:
+            raise ValueError("Unsupporeted offloading position")
+        return upload_latency
 
     def compute_input_size(self):                       # Two aspect ratios are applicable -> Classic: 4:3 and Widescreen: 16:9
         if self.img_resolution == '480p':
@@ -185,28 +260,38 @@ class EnergyMonitor():
     def compute_download_data_transfer_power(self, throughput, comm_tech):
         return alphaDOWN[comm_tech] * throughput + beta[comm_tech]      # mW
 
+    def offload_overheads(self, tu, td):
+        # Upload overheads
+        upload_latency = self.compute_comm_latency(tu)
+        upload_power = self.compute_upload_data_transfer_power(tu, self.comm_tech)
+        # Download overheads
+        if self.ret_size is not None and td is not None:
+            download_latency = self.estimate_com_latency(self.ret_size, td)
+            download_power = self.compute_download_data_transfer_power(td, self.comm_tech)
+        else:
+            download_latency = 0
+            download_power = 0
+        # Total overheads
+        total_latency = self.head_latency + upload_latency + download_latency
+        total_energy = self.head_latency*self.local_power + (upload_latency*upload_power + download_latency*download_power) / 1000       # mJ
+        return total_latency, total_energy
 
 class UploadThroughputSampler():
     def __init__(self, params):
         self.rayleigh_sigma = params["rayleigh_sigma"]
-        self.noise_addition = params["noise_addition"]
-        self.gaussian_var = params["gaussian_var"]
+        self.noise_scale = params["noise_scale"]
 
-    def sample(self, no_of_samples=1, rounding=False):              # Explore the possibility of having correlated communication models
-        tu_list = np.random.rayleigh(self.rayleigh_sigma, no_of_samples)    
-        if rounding:
-            raise NotImplementedError
-        if self.noise_addition == 'gaussian':
-            tu_list = [x + np.random.normal(0,self.guassian_var,1)[0] for x in tu_list]
-        elif self.noise_addition == 'markov':
-            raise NotImplementedError
-        else: 
-            pass      
-        return tu_list
-
-
-
-
-
-
-        
+    def sample(self, no_of_samples=1, rounding=False):   
+        # Sample throughput estimates -- we assume a rayleigh distribution as if decisions are made based on prior througphut estimates, and then add a gaussian variance for the instantenous variations          
+        probe_tu_list = np.random.rayleigh(self.rayleigh_sigma, no_of_samples)
+        # gaussian
+        delta_tu_list = np.random.normal(0, self.noise_scale, no_of_samples)    
+        # if rounding:
+        #     raise NotImplementedError
+        # if self.noise_addition == 'gaussian':
+        #     tu_list = [x + np.random.normal(0,self.guassian_var,1)[0] for x in tu_list]
+        # elif self.noise_addition == 'markov':
+        #     raise NotImplementedError
+        # else: 
+        #     pass      
+        return probe_tu_list, delta_tu_list

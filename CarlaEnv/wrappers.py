@@ -7,6 +7,7 @@ import math
 import numpy as np
 import weakref
 import pygame
+import sys
 import onnx
 from onnx_tf.backend import prepare
 from numpy import (array, dot, arccos, clip)
