@@ -73,8 +73,8 @@ class HUD(object):
             self.info_text = [
                 "Server:  % 16d FPS" % self.server_fps,
                 "Client:  % 16d FPS" % clock.get_fps(),
-                "",
-                "Map:     % 20s" % world.map.name,
+                # "",
+                # "Map:     % 20s" % world.map.name,
                 #"Simulation time: % 12s" % datetime.timedelta(seconds=int(self.simulation_time)),
                 "Number of vehicles: % 8d" % len(vehicles)
             ]
@@ -96,15 +96,15 @@ class HUD(object):
                     "Speed:   % 15.0f km/h" % (3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2)),
                     u"Heading:% 16.0f\N{DEGREE SIGN} % 2s" % (t.rotation.yaw, heading),
                     "Location:% 20s" % ("(% 5.1f, % 5.1f)" % (t.location.x, t.location.y)),
-                    "Height:  % 18.0f m" % t.location.z,
+                    # "Height:  % 18.0f m" % t.location.z,
                     "",
                     ("Throttle:", c.throttle, 0.0, 1.0),
-                    ("Steer:", c.steer, -1.0, 1.0),
-                    ("Brake:", c.brake, 0.0, 1.0),
-                    ("Reverse:", c.reverse),
-                    ("Hand brake:", c.hand_brake),
-                    ("Manual:", c.manual_gear_shift),
-                    "Gear:        %s" % {-1: "R", 0: "N"}.get(c.gear, c.gear)
+                    ("Steer:", c.steer, -1.0, 1.0)
+                    # ("Brake:", c.brake, 0.0, 1.0)
+                    # ("Reverse:", c.reverse),
+                    # ("Hand brake:", c.hand_brake),
+                    # ("Manual:", c.manual_gear_shift),
+                    # "Gear:        %s" % {-1: "R", 0: "N"}.get(c.gear, c.gear)
                 ])
             else:
                 self.info_text.append("Vehicle: % 20s" % "None")

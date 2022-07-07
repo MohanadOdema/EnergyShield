@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+from pathlib import Path
 
 import numpy as np
 import tensorflow
@@ -74,7 +75,7 @@ class PPO():
     def __init__(self, input_shape, action_space,
                  learning_rate=3e-4, lr_decay=0.998, epsilon=0.2,
                  value_scale=0.5, entropy_scale=0.01, initial_std=0.4,
-                 model_dir="./"):
+                 model_dir="./", subdirs=""):
         """
             input_shape [3]:
                 Shape of input images as a tuple (width, height, depth)
@@ -181,13 +182,14 @@ class PPO():
             summaries.append(tf.summary.scalar("predict_actor/action_{}/std".format(i), tf.exp(self.policy.action_logstd[i])))
         self.stepwise_prediction_summaries = tf.summary.merge(summaries)
 
-            # Setup model saver and dirs
+        # Setup model saver and dirs
         self.saver = tf.train.Saver()
         self.model_dir = model_dir
+        self.subdirs = subdirs
         self.checkpoint_dir = "{}/checkpoints/".format(self.model_dir)
-        self.log_dir        = "{}/logs/".format(self.model_dir)
-        self.video_dir      = "{}/videos/".format(self.model_dir)
-        self.plot_dir       = "{}/plots/".format(self.model_dir)
+        self.log_dir        = "{}/logs/".format(self.subdirs)
+        self.video_dir      = "{}/videos/".format(self.subdirs)
+        self.plot_dir       = "{}/plots/".format(self.subdirs)
         self.dirs = [self.checkpoint_dir, self.log_dir, self.video_dir, self.plot_dir]
         for d in self.dirs: os.makedirs(d, exist_ok=True)
 

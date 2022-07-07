@@ -11,15 +11,10 @@ from vae_common import create_encode_state_fn, load_vae
 from ppo import PPO
 from reward_functions import reward_functions
 # from run_eval import run_eval
-from utils import VideoRecorder, compute_gae
+from utils import VideoRecorder, compute_gae, plot_trajectories
 from vae.models import ConvVAE, MlpVAE
 
-USE_ROUTE_ENVIRONMENT = False
-
-if USE_ROUTE_ENVIRONMENT:
-    from CarlaEnv.carla_route_env import CarlaRouteEnv as CarlaEnv
-else:
-    from CarlaEnv.carla_lap_env import CarlaLapEnv as CarlaEnv
+from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
 
 
 def train(params, start_carla=True, restart=False):
@@ -71,10 +66,10 @@ def train(params, start_carla=True, restart=False):
     if isinstance(seed, int):
         tf.random.set_seed(seed)
         np.random.seed(seed)
-        random.seed(0)
+        random.seed(seed)
 
     # Load VAE
-    vae = load_vae(vae_model, vae_z_dim, vae_model_type) # OD: load pretrained VAE that generates latent vecotrs from the RGB images to train the policy network
+    vae = load_vae(vae_model, vae_z_dim, vae_model_type) # OD: load pretrained VAE that generates latent vecotrs from the RGB images to train the policy network  
     
     # Override params for logging
     params["vae_z_dim"] = vae.z_dim
@@ -113,24 +108,27 @@ def train(params, start_carla=True, restart=False):
     input_shape = np.array([vae.z_dim + len(measurements_to_include)])
     num_actions = env.action_space.shape[0]
 
+    subdirs_path = os.path.join("models", model_name, "Runs", params['img_resolution'], params['arch'], params['offload_policy']+"_"+params['HW']+"_"+str(params['deadline']))
+
     # Create model
     print("Creating model")
     model = PPO(input_shape, env.action_space,
                 learning_rate=learning_rate, lr_decay=lr_decay,
                 epsilon=ppo_epsilon, initial_std=initial_std,
                 value_scale=value_scale, entropy_scale=entropy_scale,
-                model_dir=os.path.join("models", model_name))
+                model_dir=os.path.join("models", model_name), 
+                subdirs=subdirs_path)
 
     # Prompt to load existing model if any
-    if not restart:
-        if os.path.isdir(model.log_dir) and len(os.listdir(model.log_dir)) > 0:
-            answer = input("Model \"{}\" already exists. Do you wish to continue (C) or restart training (R)? ".format(model_name))
-            if answer.upper() == "C":
-                pass
-            elif answer.upper() == "R":
-                restart = True
-            else:
-                raise Exception("There are already log files for model \"{}\". Please delete it or change model_name and try again".format(model_name))
+    # if not restart:
+    #     if os.path.isdir(model.log_dir) and len(os.listdir(model.log_dir)) > 0:
+    #         answer = input("Model \"{}\" already exists. Do you wish to continue (C) or restart training (R)? ".format(model_name))
+    #         if answer.upper() == "C":
+    #             pass
+    #         elif answer.upper() == "R":
+    #             restart = True
+    #         else:
+    #             raise Exception("There are already log files for model \"{}\". Please delete it or change model_name and try again".format(model_name))
     
     if restart:
         shutil.rmtree(model.model_dir)
@@ -142,9 +140,11 @@ def train(params, start_carla=True, restart=False):
     model.write_dict_to_summary("hyperparameters", params, 0)
 
     # For every episode
-    train_data_path = os.path.join("models", model_name, "train_data.csv")
-    valid_data_path = os.path.join("models", model_name, "valid_data.csv")
-    initial_row = ['episode_idx', 'reward','obstacle_hit', 'curb_hit', 'track_percentage', 'dist_traveled', 'dist_to_obstacle', 'avg_speed']
+    train_data_path = os.path.join(subdirs_path, "train_data.csv")
+    valid_data_path = os.path.join(subdirs_path, "valid_data.csv")
+
+    initial_row = ['episode_idx', 'reward','obstacle_hit', 'curb_hit', 'dist_traveled', 'dist_to_obstacle', 'avg_speed', 
+                    'avg_latency', 'avg_energy', 'missed_deadlines', 'max_succ_interrupts', 'missed_offloads', 'misguided_energy']
     if not os.path.exists(train_data_path):
         with open(train_data_path, 'a', newline='') as fd:
             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -163,7 +163,8 @@ def train(params, start_carla=True, restart=False):
                 env_seed = seed
             else:
                 env_seed = episode_idx
-            state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0
+            state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0  # 'state' constitues multipe components
+            # print(state) # state is the 64-dim encoder output + 5 measurements to include
             if record_eval:
                 rendered_frame = env.render(mode="rgb_array")
                 video_filename = os.path.join(model.video_dir, "episode{}.avi".format(episode_idx))
@@ -178,25 +179,24 @@ def train(params, start_carla=True, restart=False):
                 video_recorder = None
             # Reset environment
             ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none= [], [], [], [], [], [], [], [], [], [], [], [], []
+            probe_tu, exp_tu, selected_action, correct_action, probe_latency, probe_energy, actual_latency, actual_energy, exp_latency, exp_energy, miss_flag = [], [], [], [], [], [], [], [], [], [], []
 
             # While episode not done
             print("Episode {} (Step {})".format(episode_idx,model.get_train_step_idx()))
             route, current_waypoint_index = None, None
             while not terminal_state:
                 states, taken_actions, values, rewards, dones = [], [], [], [], []
-                for _ in range(horizon):                                            # number of steps to train upon the agent (128)
+                for _ in range(horizon):               # number of steps to simulate per training step (128)
                     action, value = model.predict(state, write_to_summary=True)
-
                     # Perform action
-                    new_state, reward, terminal_state, info = env.step(action)
-
+                    new_state, reward, terminal_state, info, offloading_info = env.step(action)
                     if info["closed"] == True:
                         exit(0)
 
                     env.extra_info.extend([
                         "Episode {}".format(episode_idx),
-                        "Training...",
-                        "",
+                        # "Training...",
+                        # "",
                         "Value:  % 20.2f" % value
                     ])
 
@@ -208,29 +208,48 @@ def train(params, start_carla=True, restart=False):
                         env.render()
                     total_reward += reward
 
-                    # Store state, action and reward
+                    # For training the ppo (irrelevant)
                     states.append(state)         # [T, *input_shape]
                     taken_actions.append(action) # [T,  num_actions]
                     values.append(value)         # [T]
                     rewards.append(reward)       # [T]
                     dones.append(terminal_state) # [T]
-                    xi.append(info["xi"])
-                    r.append(info["r"])
-                    filter_steer.append(info["filter_steer"])
-                    filter_throttle.append(info["filter_throttle"])
-                    rl_throttle.append(info["rl_throttle"])
-                    rl_steer.append(info["rl_steer"])
-                    sim_time.append(info["sim_time"])
-                    filter_applied.append(info["filter_applied"])
-                    action_none.append(info["action_none"])
-                    ego_x.append(info["ego_x"])
-                    ego_y.append(info["ego_y"])
+
+                    # environment measurements
+                    xi.append(round(info["xi"], 3))
+                    r.append(round(info["r"], 3))
+                    filter_steer.append(round(info["filter_steer"], 3))
+                    filter_throttle.append(round(info["filter_throttle"], 3))
+                    rl_throttle.append(round(info["rl_throttle"], 3))
+                    rl_steer.append(round(info["rl_steer"], 3))
+                    sim_time.append(round(info["sim_time"], 3))
+                    filter_applied.append(round(info["filter_applied"], 3))
+                    action_none.append(round(info["action_none"], 3))
+                    ego_x.append(round(info["ego_x"], 3))
+                    ego_y.append(round(info["ego_y"], 3))
                     if info["obstacle_x"] is not None:
-                        obstacle_x.append(info["obstacle_x"])
+                        obstacle_x.append(round(info["obstacle_x"], 3))
                     if info["obstacle_y"] is not None:
-                        obstacle_y.append(info["obstacle_y"])
+                        obstacle_y.append(round(info["obstacle_y"], 3))
                     current_waypoint_index = info["current_waypoint_index"]
                     state = new_state
+
+                    # offloading measurements
+                    probe_tu.append(round(offloading_info["probe_tu"], 3))
+                    exp_tu.append(round(offloading_info["probe_tu"] + offloading_info["delta_tu"], 3))
+                    selected_action.append(offloading_info["selected_action"])
+                    correct_action.append(offloading_info["correct_action"])
+                    try:
+                        probe_latency.append(round(offloading_info["probe_latency"], 3))
+                        probe_energy.append(round(offloading_info["probe_energy"], 3))
+                    except TypeError:
+                        probe_latency.append(offloading_info["probe_latency"])
+                        probe_energy.append(offloading_info["probe_energy"])
+                    actual_latency.append(round(offloading_info["actual_latency"], 3))
+                    actual_energy.append(round(offloading_info["actual_energy"], 3))
+                    exp_latency.append(round(offloading_info["exp_latency"], 3))
+                    exp_energy.append(round(offloading_info["exp_energy"], 3))
+                    miss_flag.append(offloading_info["missed_deadline_flag"])
 
                     if terminal_state:
                         route = info["route"]
@@ -277,28 +296,23 @@ def train(params, start_carla=True, restart=False):
                             model.train(states[mb_idx], taken_actions[mb_idx],
                                     returns[mb_idx], advantages[mb_idx])
 
+            # The direct waypoints route coordinates for plotting reference 
             completed_route = route[:current_waypoint_index]
             completed_x = [x.transform.location.x for (x,_) in completed_route]
             completed_y = [x.transform.location.y for (x,_) in completed_route]
-            # save ego and obstacle plots
-            #print("ego_x", ego_x)
-            #print("ego_y", ego_y)
-            plt.figure()
-            plt.plot(ego_x, ego_y, 'g--')
-            if len(obstacle_x) > 0:
-                plt.plot(obstacle_x, obstacle_y, 'bo')
-            plt.plot(completed_x, completed_y, 'r-.')
-            plt.xlim([180, 430])
-            plt.ylim([-410,-120])
-            plt.savefig(model.plot_dir + '/train_' + str(episode_idx) + '.png')
-            plt.close()
-            df = pd.DataFrame({'sim_time': pd.Series(sim_time),'actual_x':pd.Series(ego_x), 'actual_y': pd.Series(ego_y), 'track_x':pd.Series(completed_x), 'track_y': pd.Series(completed_y), 'obstacle_x': pd.Series(obstacle_x), 'obstacle_y':pd.Series(obstacle_y), 'r':pd.Series(r), 'xi':pd.Series(xi), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 'filter_throttle':pd.Series(filter_throttle), 'filter_steer':pd.Series(filter_steer), 'filter_applied':pd.Series(filter_applied), 'action_none': pd.Series(action_none)})
+
+            plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
+
+            df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
+                                'miss_flag': pd.Series(miss_flag), 'probe_tu': pd.Series(probe_tu), 'exp_tu': pd.Series(exp_tu), 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action),
+                                'probe_latency': pd.Series(probe_latency), 'exp_latency': pd.Series(exp_latency), 'probe_energy': pd.Series(probe_energy), 'exp_energy': pd.Series(exp_energy)})
             df.to_csv(model.plot_dir + '/train_' + str(episode_idx) + '.csv')
             # Write episodic values
             if video_recorder is not None:
                 video_recorder.release()
             if (env.distance_traveled > 0.0):
-                data_row =  [episode_idx, env.total_reward1,env.obstacle_hit,env.curb_hit, env.laps_completed,env.distance_traveled, env.min_distance_to_obstacle, 3.6 * env.speed_accum / env.step_count]
+                data_row =  [episode_idx, env.total_reward1, env.obstacle_hit, env.curb_hit, env.distance_traveled, env.min_distance_to_obstacle, 3.6 * env.speed_accum / env.step_count,
+                            np.average(exp_latency), np.average(exp_energy), env.energy_monitor.missed_deadlines, env.energy_monitor.max_succ_interrupts, env.energy_monitor.missed_offloads, env.energy_monitor.misguided_energy]
                 if test:
                     with open(valid_data_path, 'a', newline='') as fd:
                         csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -307,19 +321,8 @@ def train(params, start_carla=True, restart=False):
                     with open(train_data_path, 'a', newline='') as fd:
                         csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                         csv_writer.writerow(data_row)
-                model.write_value_to_summary("train/reward1", env.total_reward1, episode_idx)
-                #model.write_value_to_summary("train/reward2", env.total_reward2, episode_idx)
-                #model.write_value_to_summary("train/avg_steer_diff", env.steer_diff_avg, episode_idx)
-                model.write_value_to_summary("train/obstacle_hit", env.obstacle_hit, episode_idx)
-                model.write_value_to_summary("train/curb_hit", env.curb_hit, episode_idx)
-                model.write_value_to_summary("train/track_completed", env.laps_completed, episode_idx)
-                model.write_value_to_summary("train/distance_traveled", env.distance_traveled, episode_idx)
-                model.write_value_to_summary("train/min_distance_to_obstacle", env.min_distance_to_obstacle, episode_idx)
-                model.write_value_to_summary("train/average_speed", 3.6 * env.speed_accum / env.step_count, episode_idx)
-                #model.write_value_to_summary("train/center_lane_deviation", env.center_lane_deviation, episode_idx)
-                #model.write_value_to_summary("train/average_center_lane_deviation", env.center_lane_deviation / env.step_count, episode_idx)
-                #model.write_value_to_summary("train/distance_over_deviation", env.distance_traveled / env.center_lane_deviation, episode_idx)
-                model.write_episodic_summaries()
+            model.write_episodic_summaries()
+
             if not test:
                 model.save()
         except KeyboardInterrupt:
@@ -366,7 +369,7 @@ if __name__ == "__main__":
                         help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed " +
                              "with this option in our experience)")
     parser.add_argument("--eval_interval", type=int, default=100, help="Number of episodes between evaluation runs")
-    parser.add_argument("-record_eval", action="store_true", default=True,
+    parser.add_argument("-record_eval", action="store_true", default=False,
                         help="If True, save videos of evaluation episodes " +
                              "to models/model_name/videos/")
 
@@ -378,6 +381,7 @@ if __name__ == "__main__":
     parser.add_argument("-obstacle", action="store_true", default=False, help="Add obstacles")
     parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
     parser.add_argument("--track", type=int, default=1, help="Track Number")
+    parser.add_argument("--pos_mul", type=int, default=2, help='obstacle position multiplier')
     parser.add_argument("-test", action="store_true", default=False, help="test")
 
     parser.add_argument("-restart", action="store_true",
@@ -396,8 +400,7 @@ if __name__ == "__main__":
     parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
-
-    parser.add_argument("--record_for_analysis", action='store_true', help='Record energy measurements needed for analysis')
+    
     # Metrics to record (energy, missed deadlines, longest accumulated latency (99th percentile?))
     # Maybe even do with sudden and no interrupts?
     # shall I do like 50-100 episodes initially, and then average over the entire thingy?

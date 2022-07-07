@@ -5,7 +5,7 @@ import numpy as np
 import scipy.signal
 import tensorflow
 import tensorflow.compat.v1 as tf
-
+import matplotlib.pyplot as plt
 
 class VideoRecorder():
     def __init__(self, filename, frame_size, fps=30):
@@ -49,3 +49,15 @@ def compute_gae(rewards, values, bootstrap_values, terminals, gamma, lam):
     terminals = np.array(terminals)
     deltas = rewards + (1.0 - terminals) * gamma * values[1:] - values[:-1]
     return scipy.signal.lfilter([1], [1, -gamma * lam], deltas[::-1], axis=0)[::-1]
+
+# plots
+def plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, plot_dir, episode_idx):
+    plt.figure()
+    plt.plot(ego_x, ego_y, 'g--')
+    if len(obstacle_x) > 0:
+        plt.plot(obstacle_x, obstacle_y, 'bo')
+    plt.plot(completed_x, completed_y, 'r-.')
+    # plt.xlim([180, 430])
+    # plt.ylim([-410,-120])
+    plt.savefig(plot_dir + '/train_' + str(episode_idx) + '.png')
+    plt.close()

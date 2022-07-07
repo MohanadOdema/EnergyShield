@@ -14,17 +14,17 @@ from hud import HUD
 from planner import RoadOption, compute_route_waypoints
 from wrappers import *
 from offloading_utils import *
+from OD_utils import *
 import math
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
-class CarlaLapEnv(gym.Env):
+class CarlaOffloadEnv(gym.Env):
     """
 
         Note that you may also need to add the following line to
-        Unreal/CarlaUE4/Config/DefaultGame.ini to have a specific map included in the package:
-        
+        Unreal/CarlaUE4/Config/DefaultGame.ini to have a specific map included in the package:       
         +MapsToCook=(FilePath="/Game/Carla/Maps/Town07")
     """
 
@@ -33,7 +33,7 @@ class CarlaLapEnv(gym.Env):
     }
 
     def __init__(self, host="127.0.0.1", port=2000,
-                 viewer_res=(1280, 720), obs_res=(1280, 720),
+                 viewer_res=(1280, 720), obs_res=(1280, 720),       # spectator camera and dash camera resolutions
                  reward_fn=None, encode_state_fn=None, 
                  synchronous=True, fps=30, action_smoothing=0.9,
                  start_carla=True, apply_filter=False, obstacle=False, penalize_steer_diff=False, penalize_dist_obstacle=False, gaussian=False, track=1, params=None, mode='train'):
@@ -46,38 +46,6 @@ class CarlaLapEnv(gym.Env):
             This vehicle can be controlled using the step() function,
             taking an action that consists of [steering_angle, throttle].
 
-            host (string):
-                IP address of the CARLA host
-            port (short):
-                Port used to connect to CARLA
-            viewer_res (int, int):
-                Resolution of the spectator camera (placed behind the vehicle by default)
-                as a (width, height) tuple
-            obs_res (int, int):
-                Resolution of the observation camera (placed on the dashboard by default)
-                as a (width, height) tuple
-            reward_fn (function):
-                Custom reward function that is called every step.
-                If None, no reward function is used.
-            encode_state_fn (function):
-                Function that takes the image (of obs_res resolution) from the
-                observation camera and encodes it to some state vector to returned
-                by step(). If None, step() returns the full image.
-            action_smoothing:
-                Scalar used to smooth the incomming action signal.
-               http://mlg.eng.cam.ac.uk/yarin/thesis/thesis.pdf 1.0 = max smoothing, 0.0 = no smoothing
-            fps (int):
-                FPS of the client. If fps <= 0 then use unbounded FPS.
-                Note: Sensors will have a tick rate of fps when fps > 0, 
-                otherwise they will tick as fast as possible.
-            synchronous (bool):
-                If True, run in synchronous mode (read the comment above for more info)
-            start_carla (bool):
-                Automatically start CALRA when True. Note that you need to
-                set the environment variable ${CARLA_ROOT} to point to
-                the CARLA root directory for this option to work.
-            apply_filter (bool):
-                Apply safety filter to control actions before sending them to Carla
         """
         self.obstacle_en            = obstacle
         self.track                  = track
@@ -92,14 +60,13 @@ class CarlaLapEnv(gym.Env):
         self.steer_diff_avg         = 0
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
+        self.position_multiplier    = params["pos_mul"]
 
         self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)
 
         if apply_filter:
             self.safety_filter = SafetyFilter()
-        # Start CARLA from CARLA_ROOT
-        self.carla_process = None
 
         # Initialize pygame for visualization
         pygame.init()
@@ -143,56 +110,23 @@ class CarlaLapEnv(gym.Env):
                 self.world.apply_settings(settings)
 
             # Get spawn location
-            #lap_start_wp = self.world.map.get_waypoint(carla.Location(x=-180.0, y=110))
             start_index, end_index, road_option_count = 0,0,0
             if track == 1:
                 start_index = 46
-                # end_index   = 232         # Original spawn position not on the lane path
                 end_index   = 205           # These spawn positions are on the lane path [3,7,69,197,205,239]
                 road_option_count = 1
-            elif track == 2:
-                start_index = 78
-                end_index   = 65
-                road_option_count = 4
             lap_start_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[start_index].location)
-            # print(lap_start_wp)
             spawn_transform = lap_start_wp.transform
             spawn_transform.location += carla.Location(z=1.0)
-
-            #dist1 = 10000000
-            #dist2 = dist1
-            #starting_point = None
-            #ending_point = None
-            #starting_point_index = None
-            #ending_point_index = None
-            #for i , point in enumerate(self.world.map.get_spawn_points()):
-            #   new_dist = np.linalg.norm(np.array([407.6,-114.6 ])- np.array([point.location.x, point.location.y]))
-            #   if new_dist < dist1:
-            #       dist1 = new_dist
-            #       starting_point = point
-            #       starting_point_index  = i
-            #   new_dist = np.linalg.norm(np.array([75, -360]) - np.array([point.location.x, point.location.y]))
-            #   if new_dist < dist2:
-            #       dist2 = new_dist
-            #       ending_point = point
-            #       ending_point_index  = i
-            #for i, point in enumerate(self.world.map.get_spawn_points()):
-            #    if abs(point.location.x - 406) < 5:
-            #        pass
-            #print("endpoint+x", ending_point.location.x)
-            #print("endpoint+y", ending_point.location.y)
-            #print("endpoint", ending_point_index)
-            # Create vehicle and attach camera to it
-            #232
             lap_end_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[end_index].location)
             spawn_transform_end = lap_end_wp.transform
             spawn_transform_end.location += carla.Location(z=1.0)
             self.route_waypoints = compute_route_waypoints(self.world.map, lap_start_wp, lap_end_wp, resolution=1.0,
                                                            plan=[
                                                                RoadOption.STRAIGHT]*road_option_count)  # + [RoadOption.RIGHT] * 2 + [RoadOption.STRAIGHT] * 5)
-            print("first len",len(self.route_waypoints))
-            self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)/4)]      # OD: Take quarter of the waypoints?
-            print("second len", len(self.route_waypoints))
+            self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//4)]
+
+            # print(len(self.route_waypoints))
             self.current_waypoint_index = 0
             self.checkpoint_waypoint_index = 0
 
@@ -203,7 +137,7 @@ class CarlaLapEnv(gym.Env):
             # Create hud
             self.hud = HUD(width, height)  
             self.hud.set_vehicle(self.vehicle)
-            self.world.on_tick(self.hud.on_world_tick)  # OD: I'm not sure what this does
+            self.world.on_tick(self.hud.on_world_tick)
 
             # Create cameras
             self.dashcam = Camera(self.world, out_width, out_height,
@@ -219,19 +153,10 @@ class CarlaLapEnv(gym.Env):
             self.obstacles = []
             self.create_obstacles = True
             print("init obstacles")
-            #self.obstacle_transform = self.route_waypoints[10][0].transform
-            #self.obstacle_transform.location += carla.Location(x=100,y=100,z=1.0)
-            #if self.obstacle_en:
-            #    self.obstacle = Obstacle(self.world, self.obstacle_transform)
 
         except Exception as e:
             self.close()
             raise e
-
-        # Generate waypoints along the lap
-        #407.6,-114.6   408.1, -194.8
-        #lap_end_wp = carla.Location(x=400.8, y = -276.68, z = 0)
-
 
         # Reset env to set initial state
         self.reset()
@@ -259,14 +184,6 @@ class CarlaLapEnv(gym.Env):
         self.probe_tu = 0
         self.delta_tu = 0
 
-        #if is_training:
-        #    # Teleport vehicle to last checkpoint
-        #    waypoint, _ = self.route_waypoints[self.checkpoint_waypoint_index % len(self.route_waypoints)]
-        #    self.current_waypoint_index = self.checkpoint_waypoint_index
-        #else:
-        #    # Teleport vehicle to start of track
-        #    waypoint, _ = self.route_waypoints[0]
-        #    self.current_waypoint_index = 0
         # Always start from the beginning
         self.curb_hit = False
         self.obstacle_hit = False
@@ -284,38 +201,31 @@ class CarlaLapEnv(gym.Env):
         gasussian_var = 1.15
         if is_training:
             self.obstacle_percentage = 1.0
-        if self.obstacle_en:                                        # obstacles may need to be stretched along a bigger road extension for offloading -- maybe i just need a couple
+
+        # Creating obstacles
+        if self.obstacle_en:
             if random.random() < self.obstacle_percentage:
                 print("create obstacles")
                 print("len_obstacles", len(self.obstacles))
                 #self.valid_obstacle = True
                 if self.track == 1:
-                    spawn_idx = random.randint(12,20)
-                elif self.track == 2:
-                    spawn_idx = random.randint(20, 30)
-
+                    spawn_idx = random.randint(60,90)
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
                 spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
                 if (not is_training) and gaussian:
                     spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                     spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
                 if self.track == 1:
-                    len_obs = 5
-                elif self.track == 2:
-                    len_obs = 2
+                    len_obs = 1
                 current_idx  = 0
                 for i in range(0,len_obs):
                     print("i", i)
                     if self.create_obstacles:
-                        # print(spawn_transform)
                         self.obstacles.append(Obstacle(self.world, spawn_transform))
-                        ret_val = self.obstacles[i].is_valid()
-                        while ret_val is None:
-                            print("try again")
-                            if self.track == 1:
-                                spawn_idx = random.randint(30,50)
-                            elif self.track == 2:
-                                spawn_idx = random.randint(70, 130)
+                        ret_val = self.obstacles[i].is_valid()      
+                        while ret_val is None:              
+                            print("try again")          # First obstacle spawning has an issue
+                            spawn_idx = random.randint(30,50)
                             if (spawn_idx + current_idx)  >= len(self.route_waypoints):
                                 continue
                             spawn_transform = self.route_waypoints[current_idx + spawn_idx][0].transform
@@ -329,32 +239,22 @@ class CarlaLapEnv(gym.Env):
                         if i >= len(self.obstacles):
                            break
                         self.obstacles[i].set_transform(spawn_transform)
-                    # print(len(self.route_waypoints))
                     print(spawn_idx)
                     current_idx += spawn_idx
-                    if self.track == 1:
-                        spawn_idx = random.randint(30,50)
-                    elif self.track == 2:
-                        spawn_idx = random.randint(70, 130)
+                    spawn_idx = random.randint(30,50)
                     if spawn_idx + current_idx >= len(self.route_waypoints):
                         break
+                    # The next spawning position in the loop
                     spawn_transform = self.route_waypoints[spawn_idx + current_idx][0].transform
                     spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
                     # add some randomization
                     if (not is_training) and gaussian:
                         spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                         spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
-                self.create_obstacles = False
-                print("len_obstacles", len(self.obstacles))
-                #lap_start_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[46].location)
-                #self.obstacle.set_transform(spawn_transform)
-                #print(self.obstacle.get_transform())
+                self.create_obstacles = False 
+                print("len obstacles", len(self.obstacles))
                 self.obstacle_counter = 0
-                #self.obstacle_counter_activated = False
-                # Change obstacle's position
-            #else:
-            #    self.valid_obstacle = False
-        # Give 2 seconds to reset
+
         if self.synchronous:
             ticks = 0
             while ticks < self.fps * 2:
@@ -363,7 +263,6 @@ class CarlaLapEnv(gym.Env):
                 try:
                     self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
                     print('You cannot reach here if synchronous!')
-                    ticks += 1
                 except:
                     pass
                 ticks += 1 
@@ -399,8 +298,6 @@ class CarlaLapEnv(gym.Env):
         return self.step(None)[0]
 
     def close(self):
-        if self.carla_process:
-            self.carla_process.terminate()
         pygame.quit()
         if self.world is not None:
             self.world.destroy()
@@ -419,19 +316,28 @@ class CarlaLapEnv(gym.Env):
         self.extra_info.extend([
             "Reward: % 19.2f" % self.last_reward,
             "",
-            "Maneuver:        % 11s"       % maneuver,
+            # "Maneuver:        % 11s"       % maneuver,
             "Laps completed:    % 7.2f %%" % (self.laps_completed * 100.0),
             "Distance traveled: % 7d m"    % self.distance_traveled,
             "Center deviance:   % 7.2f m"  % self.distance_from_center,
-            "Avg center dev:    % 7.2f m"  % (self.center_lane_deviation / self.step_count),
+            # "Avg center dev:    % 7.2f m"  % (self.center_lane_deviation / self.step_count),
             "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
             "",
-            "Action:              % 1.0f"  % (self.action),
-            "Current Ergy:      %7.2f mJ"  % (self.energy),
-            "Offloading Latency: %7.2f ms" % (self.off_latency)
-            # "Local Ergy:        %7.2f mJ"  % (self.energy_monitor.local_energy),
-            # "Tx Ergy:           %7.2f mJ"  % (self.energy_monitor.total_energy),
-            # "Throughput        %7.2f Mbps" % (self.tu)
+            "Deadline:         % 1.0f ms"   % (self.energy_monitor.deadline),
+            "Probe tu:        %7.2f Mbps"  % (self.probe_tu),
+            "Delta tu:        %7.2f Mbps"  % (self.delta_tu),
+            "",
+            "Local Ergy:        %7.2f mJ"  % (self.energy_monitor.full_local_energy),
+            "Exp Ergy:          %7.2f mJ"  % (self.energy_monitor.exp_total_energy),
+            "Local Latency:     %7.2f ms"  % (self.energy_monitor.full_local_latency),
+            "Exp Latency:       %7.2f ms"  % (self.energy_monitor.exp_total_latency),
+            "",
+            "Selected Action:     % 1.0f"  % (self.energy_monitor.selected_action),
+            "Correct Action:      % 1.0f"  % (self.energy_monitor.correct_action),
+            "",
+            "Missed Deadlines:     %1.0f"  % (self.energy_monitor.missed_deadlines),
+            "Max succ interrupts:  %1.0f"  % (self.energy_monitor.max_succ_interrupts),
+            "Missed offloads:      %1.0f"  % (self.energy_monitor.missed_offloads)
         ])
 
         # Blit image from spectator camera
@@ -500,22 +406,19 @@ class CarlaLapEnv(gym.Env):
         xi = self.xi
         r = self.r
 
-        self.probe_tu, self.delta_tu = self.throughput_prober.sample(1)                           # list of throughputs
+        self.probe_tu, self.delta_tu = self.throughput_prober.sample(1)                         
+        if not self.energy_monitor.verify_combinations():
+            print("Local pipeline latency > deadline!")         # operation needs to be verified
+            self.close()
         self.energy_monitor.determine_offloading_decision(self.probe_tu, self.delta_tu)      
-
-        # self.logger()   
 
         if action is not None:
             steer, throttle = [float(a) for a in action]
-            #steer, throttle, brake = [float(a) for a in action]
             self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
             self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
-            #self.vehicle.control.brake = self.vehicle.control.brake * self.action_smoothing + brake * (1.0-self.action_smoothing)
             rl_steer = self.vehicle.control.steer
             rl_throttle = self.vehicle.control.throttle
             if self.safety_filter is not None:
-                #print("obstacle is ", self.obstacle)
-                #print("control counter", self.obstacle_counter)
                 self.safety_filter.set_filter_inputs(self.xi, self.r)
                 self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
                 if filter_applied:
@@ -550,17 +453,15 @@ class CarlaLapEnv(gym.Env):
         transform = self.vehicle.get_transform()
         # fill in vehicle plot data
         ego_x = transform.location.x
-        #print("ego_x", ego_x)
         ego_y = transform.location.y
-        #print("ego_y", ego_y)
         # Keep track of closest waypoint on the route
         waypoint_index = self.current_waypoint_index
         for _ in range(len(self.route_waypoints)):
             # Check if we passed the next waypoint along the route
             next_waypoint_index = waypoint_index + 1
-            wp, _ = self.route_waypoints[next_waypoint_index % len(self.route_waypoints)]
+            wp, _ = self.route_waypoints[next_waypoint_index % len(self.route_waypoints)] 
             dot = np.dot(vector(wp.transform.get_forward_vector())[:2],
-                         vector(transform.location - wp.transform.location)[:2])
+                         vector(transform.location - wp.transform.location)[:2])    # ignore z-axis
             if dot > 0.0: # Did we pass the waypoint?
                 waypoint_index += 1 # Go to next waypoint
             else:
@@ -568,22 +469,15 @@ class CarlaLapEnv(gym.Env):
         self.current_waypoint_index = waypoint_index
         obstacle_x = None
         obstacle_y = None
-        #if self.obstacle_en and self.valid_obstacle:
-        if self.obstacle_en:# and self.valid_obstacle:
-            # get distance from obstacle
-            #print("obstacle_counter", self.obstacle_counter)
+        if self.obstacle_en:
             r_v = np.array([self.vehicle.get_transform().location.x, self.vehicle.get_transform().location.y]) - np.array(
-                [self.obstacles[self.obstacle_counter].get_transform().location.x, self.obstacles[self.obstacle_counter].get_transform().location.y])
+                [self.obstacles[self.obstacle_counter].get_transform().location.x, self.obstacles[self.obstacle_counter].get_transform().location.y]) # could just compare self.r from 394?
             distance_to_obstacle = np.linalg.norm(r_v)
             if distance_to_obstacle < self.min_distance_to_obstacle:
                 self.min_distance_to_obstacle = distance_to_obstacle
             # fill in obstacle plot data
             obstacle_x = self.obstacles[self.obstacle_counter].get_transform().location.x
             obstacle_y = self.obstacles[self.obstacle_counter].get_transform().location.y
-            #if self.obstacle_counter_activated:
-            #    #print("obstacle_counter--", self.obstacle_counter)
-            #    self.obstacle_counter-=1
-
             # check the closest obstacle to the vehicle
             dist_obstacles = [100000] * len(self.obstacles)
             for i in range(len(self.obstacles)):
@@ -592,36 +486,9 @@ class CarlaLapEnv(gym.Env):
                     [obstacle_loc.x, obstacle_loc.y])
                 dist_obstacles[i] = np.linalg.norm(r_v)
             self.obstacle_counter = np.argmin(dist_obstacles)
-            # check if the vehicle got past the obstacle
-            #if self.current_waypoint_index > 1:
-            #    dot = np.dot(vector(self.obstacles[self.obstacle_counter].get_transform().get_forward_vector())[:2],
-            #                 vector(transform.location - self.obstacles[self.obstacle_counter].get_transform().location)[:2])
-                #print("dot is", dot)
-            #    if dot < 0.0:
-            #        if self.obstacle_counter < (len(self.obstacles)-1):
-            #            self.obstacle_counter += 1
-                    #print("dot < 0")
-                    #if self.obstacle_counter_activated:
-                    #    if self.obstacle_counter == 0:
-                    #        # set obstacle repositioning timer
-                    #        print("reset obstacle transform")
-                    #        obstacle_transform = \
-                    #            self.route_waypoints[
-                    #                (self.current_waypoint_index + random.randint(20, 40)) % len(self.route_waypoints)][
-                    #                0].transform
-                    #        obstacle_transform.rotation = carla.Rotation(yaw=obstacle_transform.rotation.yaw - 180)
-                    #        self.obstacle.set_transform(obstacle_transform)
-                    #        self.obstacle_counter_activated = False
-                    #
-                    #else:
-                    #    self.obstacle_counter_activated = True
-                    #    self.obstacle_counter = random.randint(50, 200)
-                    #    #self.obstacle_counter = random.randint(1, 2)
 
         # Calculate deviation from center of the lane
         self.current_waypoint, self.current_road_maneuver = self.route_waypoints[ self.current_waypoint_index    % len(self.route_waypoints)]
-        #print("waypoint_x", self.current_waypoint.transform.location.x)
-        #print("waypoint_y", self.current_waypoint.transform.location.y)
         self.next_waypoint, self.next_road_maneuver       = self.route_waypoints[(self.current_waypoint_index+1) % len(self.route_waypoints)]
         self.distance_from_center = distance_to_line(vector(self.current_waypoint.transform.location),
                                                      vector(self.next_waypoint.transform.location),
@@ -629,7 +496,7 @@ class CarlaLapEnv(gym.Env):
         self.center_lane_deviation += self.distance_from_center
 
         # DEBUG: Draw current waypoint
-        #self.world.debug.draw_point(self.current_waypoint.transform.location, color=carla.Color(0, 255, 0), life_time=1.0)
+        # self.world.debug.draw_point(self.current_waypoint.transform.location, color=carla.Color(0, 255, 0), life_time=1.0)
 
         # Calculate distance traveled
         self.distance_traveled += self.previous_location.distance(transform.location)
@@ -638,16 +505,14 @@ class CarlaLapEnv(gym.Env):
         # Accumulate speed
         self.speed_accum += self.vehicle.get_speed()
 
-
         # Get lap count
         self.laps_completed = (self.current_waypoint_index - self.start_waypoint_index) / len(self.route_waypoints)
-        print(self.current_waypoint_index)
+        # print(self.current_waypoint_index)
         if self.laps_completed >= 1:
             # End after 3 laps
             self.laps_completed = 1
             self.track_completed = True
             self.terminal_state = True
-
                 
         # Update checkpoint for training
         if self.is_training:
@@ -670,8 +535,24 @@ class CarlaLapEnv(gym.Env):
             self.close()
             self.terminal_state = True
 
-        return encoded_state, self.last_reward, self.terminal_state, { "closed": self.closed, "ego_x": ego_x, "ego_y": ego_y, "obstacle_x": obstacle_x, "obstacle_y":obstacle_y, "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, "rl_steer":rl_steer, "rl_throttle":rl_throttle, "filter_steer":filter_steer, "filter_throttle":filter_throttle, "sim_time":time.clock(),
-                                                                       "filter_applied": filter_applied, "action_none":(action is None)}
+        env_dict = rounded_dict({"closed": self.closed, "ego_x": ego_x, "ego_y": ego_y, "obstacle_x": obstacle_x, "obstacle_y":obstacle_y, 
+                        "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, 
+                        "rl_steer":rl_steer, "rl_throttle":rl_throttle, "filter_steer":filter_steer, "filter_throttle":filter_throttle, 
+                        "sim_time":time.clock(), "filter_applied": filter_applied, "action_none":(action is None)})
+        offloading_dict = rounded_dict({"probe_tu": self.probe_tu[0], "delta_tu":self.delta_tu[0], 
+                            "selected_action": self.energy_monitor.selected_action, "correct_action": self.energy_monitor.correct_action,
+                            "probe_latency": self.energy_monitor.probe_off_latency, "probe_energy": self.energy_monitor.probe_off_energy,
+                            "actual_latency": self.energy_monitor.actual_off_latency, "actual_energy": self.energy_monitor.actual_off_energy,
+                            "exp_latency": self.energy_monitor.exp_total_latency, "exp_energy": self.energy_monitor.exp_total_energy,
+                            "missed_deadline_flag": self.energy_monitor.missed_deadline_flag, "missed_deadlines": self.energy_monitor.missed_deadlines,
+                            "succ_interrupts": self.energy_monitor.succ_interrupts, "max_succ_interrupts": self.energy_monitor.max_succ_interrupts,
+                            "missed_offloads": self.energy_monitor.missed_offloads, "misguided_energy": self.energy_monitor.misguided_energy})
+
+        # print('-'*80)
+        # print(offloading_dict)
+        # print('-'*80)
+
+        return encoded_state, self.last_reward, self.terminal_state, env_dict, offloading_dict
 
     def _draw_path(self, life_time=60.0, skip=0):
         """
@@ -725,7 +606,6 @@ class CarlaLapEnv(gym.Env):
             self.curb_hit = True
         self.terminal_state = True
 
-
     def _on_invasion(self, event):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ["%r" % str(x).split()[-1] for x in lane_types]
@@ -736,20 +616,6 @@ class CarlaLapEnv(gym.Env):
 
     def _set_viewer_image(self, image):
         self.viewer_image_buffer = image
-
-    def logger(self):
-        print('-'*80)
-        print(f"Architecture: {self.energy_monitor.arch}, Offloading policy: {self.energy_monitor.offload_policy}")
-        print(f"local_latency: {self.energy_monitor.full_local_latency}, local_energy: {self.energy_monitor.full_local_energy}")
-        print(f"Probe throughput: {self.probe_tu}, Delta throughput: {self.delta_tu}")
-        print(f"Selected Action: {self.energy_monitor.selected_action}, Correct Action: {self.energy_monitor.correct_action}")
-        print(f"probe off latency: {self.energy_monitor.probe_off_latency}, probe off energy: {self.energy_monitor.probe_off_energy}")
-        print(f"actual off latency: {self.energy_monitor.actual_off_latency}, actual off energy: {self.energy_monitor.actual_off_energy}")
-        print(f"Exp latency: {self.energy_monitor.exp_total_latency}, Exp energy: {self.energy_monitor.exp_total_energy}")
-        print(f"Missed_deadline_flag: {self.energy_monitor.missed_deadline_flag}, Missed_deadlines: {self.energy_monitor.missed_deadlines}")
-        print(f"Successive interrupts: {self.energy_monitor.succ_interrupts}, max_succ_interrupts: {self.energy_monitor.max_succ_interrupts}")
-        print(f"Missed offloads: {self.energy_monitor.missed_offloads}, misguided energy: {self.energy_monitor.misguided_energy}")
-        print('-'*80)
 
 def reward_fn(env):
     early_termination = False
@@ -771,7 +637,7 @@ def reward_fn(env):
 
 if __name__ == "__main__":
     # Example of using CarlaEnv with keyboard controls
-    env = CarlaLapEnv(obs_res=(160, 80), reward_fn=reward_fn)
+    env = CarlaOffloadEnv(obs_res=(160, 80), reward_fn=reward_fn)
     action = np.zeros(env.action_space.shape[0])
     while True:
         env.reset(is_training=True, seed=0)

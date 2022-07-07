@@ -106,12 +106,12 @@ class OffloadingManager():
         self.missed_deadlines       = 0         # For both fail-safe and missed deadlines 
         self.succ_interrupts        = 0
         self.max_succ_interrupts    = 0 
-        self.missed_offloads        = 0
+        self.missed_offloads        = 0         # When local is chosen and good offloading opportunity is missed
         self.misguided_energy       = 0
 
-        self.probe_off_latency      = None
-        self.probe_off_energy       = None
-        self.actual_off_latency     = None
+        self.probe_off_latency      = None      # previous throghput estimates
+        self.probe_off_energy       = None      
+        self.actual_off_latency     = None      # actual throughput estimates
         self.actual_off_energy      = None
 
     def reset(self):
@@ -125,9 +125,9 @@ class OffloadingManager():
     def determine_offloading_decision(self, probe_tu, delta_tu, td=None, k=1):  
         # Select the operational mode based on the energy and latency estimates
         # k: number of windows successively affected by wireless uncertainty
-        # 0 for local, 1 for offload
+        # action 0 for local, action 1 for offload
 
-        # Ideal performance given instantenous throughput
+        # Actual performance given instantenous throughput
         self.actual_off_latency, self.actual_off_energy = self.evaluate(probe_tu[0] + delta_tu[0])     # true offloading estimates
         self.correct_action = self.select_offloading_action('ideal')                                   # ideally should offload or not
         if self.offload_policy == "local":
@@ -153,11 +153,11 @@ class OffloadingManager():
                 return 1
         return 0
 
+    def verify_combinations(self):
+        return self.full_local_latency <= self.deadline
+
     def evaluate(self, tu, td=None):   
-        # Estimate energy based on Upload and Download throughput in Mbps   
-        assert self.full_local_latency <= self.deadline              
-        # if self.offload_policy == 'local':
-        #     return self.full_local_latency, self.full_local_energy
+        # Estimate energy based on Upload and Download throughput in Mbps           
         return self.offload_overheads(tu, td)
 
     def record_violations(self, probe_tu, delta_tu):
@@ -169,7 +169,7 @@ class OffloadingManager():
             else:                                         # wrong energy estimates or static offloading violation
                 self.missed_deadline_flag = False                                              
                 self.succ_interrupts = 0
-                self.misguided_energy += 1                # wrong decision due to energy
+                self.misguided_energy += 1                # wrong decision due to misguided energy estimates
         else:
             self.missed_deadline_flag = False
             self.succ_interrupts = 0
@@ -186,7 +186,7 @@ class OffloadingManager():
         else: 
             if self.head_latency + upload_latency > self.deadline:
                 return True 
-        # assert self.probe_off_energy < self.full_local_energy         # cause i can have static offload policy
+        # assert self.probe_off_energy < self.full_local_energy
         return False
 
     def remedy(self, probe_tu, delta_tu):
@@ -266,7 +266,7 @@ class OffloadingManager():
         upload_power = self.compute_upload_data_transfer_power(tu, self.comm_tech)
         # Download overheads
         if self.ret_size is not None and td is not None:
-            download_latency = self.estimate_com_latency(self.ret_size, td)
+            download_latency = self.estimate_comm_latency(self.ret_size, td)
             download_power = self.compute_download_data_transfer_power(td, self.comm_tech)
         else:
             download_latency = 0
@@ -285,13 +285,12 @@ class UploadThroughputSampler():
         # Sample throughput estimates -- we assume a rayleigh distribution as if decisions are made based on prior througphut estimates, and then add a gaussian variance for the instantenous variations          
         probe_tu_list = np.random.rayleigh(self.rayleigh_sigma, no_of_samples)
         # gaussian
-        delta_tu_list = np.random.normal(0, self.noise_scale, no_of_samples)    
-        # if rounding:
-        #     raise NotImplementedError
-        # if self.noise_addition == 'gaussian':
-        #     tu_list = [x + np.random.normal(0,self.guassian_var,1)[0] for x in tu_list]
-        # elif self.noise_addition == 'markov':
-        #     raise NotImplementedError
-        # else: 
-        #     pass      
+        delta_tu_list = np.random.normal(0, self.noise_scale, no_of_samples) 
+        # make sure no negative throughputs   
+        i = 0
+        while(i<len(probe_tu_list)):
+            if probe_tu_list[i] + delta_tu_list[i] < 0:
+                delta_tu_list[i] = -1*probe_tu_list[i] + 1e-8
+            i = i+1
+        # TODO: Add support for other random noise types            
         return probe_tu_list, delta_tu_list
