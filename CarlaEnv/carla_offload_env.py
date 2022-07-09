@@ -14,6 +14,8 @@ from hud import HUD
 from planner import RoadOption, compute_route_waypoints
 from wrappers import *
 from offloading_utils import *
+from agents.navigation import *
+# from .navigation.behavior_agent import BehaviorAgent
 from OD_utils import *
 import math
 
@@ -61,6 +63,8 @@ class CarlaOffloadEnv(gym.Env):
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
         self.position_multiplier    = params["pos_mul"]
+        self.follow_waypoints       = params["follow_waypoints"]
+        self.agent                  = None
 
         self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)
@@ -126,6 +130,8 @@ class CarlaOffloadEnv(gym.Env):
                                                                RoadOption.STRAIGHT]*road_option_count)  # + [RoadOption.RIGHT] * 2 + [RoadOption.STRAIGHT] * 5)
             self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//4)]
 
+            self.destination = self.route_waypoints[100][0].transform.location
+
             # print(len(self.route_waypoints))
             self.current_waypoint_index = 0
             self.checkpoint_waypoint_index = 0
@@ -133,6 +139,9 @@ class CarlaOffloadEnv(gym.Env):
             self.vehicle = Vehicle(self.world, spawn_transform,
                                    on_collision_fn=lambda e: self._on_collision(e),
                                    on_invasion_fn=lambda e: self._on_invasion(e))
+
+            if self.follow_waypoints:
+                self.agent = BasicAgent(self.vehicle)
 
             # Create hud
             self.hud = HUD(width, height)  
@@ -201,6 +210,12 @@ class CarlaOffloadEnv(gym.Env):
         gasussian_var = 1.15
         if is_training:
             self.obstacle_percentage = 1.0
+
+        self.energy_monitor.reset()     # reset stats for new episode
+
+        if self.agent is not None:
+            print(self.destination)
+            self.agent.set_destination(self.destination)
 
         # Creating obstacles
         if self.obstacle_en:
@@ -407,12 +422,33 @@ class CarlaOffloadEnv(gym.Env):
         r = self.r
 
         self.probe_tu, self.delta_tu = self.throughput_prober.sample(1)                         
+        self.energy_monitor.certify_deadline()
         if not self.energy_monitor.verify_combinations():
             print("Local pipeline latency > deadline!")         # operation needs to be verified
             self.close()
         self.energy_monitor.determine_offloading_decision(self.probe_tu, self.delta_tu)      
+       
+        if self.follow_waypoints:
+            control = self.agent.run_step()
+            steer = control.steer
+            throttle = control.throttle
+            # print(steer, type(steer), throttle, type(throttle))
+            # exit(0)
+            # print(control)
 
-        if action is not None:
+            self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
+            self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
+
+            # control.manual_gear_shift = False 
+            # self.vehicle.apply_control(control)
+
+            # self.vehicle.set_autopilot(True)
+            rl_steer = self.vehicle.control.steer
+            rl_throttle = self.vehicle.control.throttle
+            filter_steer = self.vehicle.control.steer
+            filter_throttle = self.vehicle.control.throttle
+
+        elif action is not None:
             steer, throttle = [float(a) for a in action]
             self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
             self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
@@ -426,7 +462,8 @@ class CarlaOffloadEnv(gym.Env):
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
 
             filter_steer = self.vehicle.control.steer
-            filter_throttle = self.vehicle.control.throttle
+            filter_throttle = self.vehicle.control.throttle    
+
         #filter_data = {rl_steer, rl_throttle, filter_steer, filter_throttle, xi, r}
         # Tick game
         self.hud.tick(self.world, self.clock)
@@ -496,7 +533,7 @@ class CarlaOffloadEnv(gym.Env):
         self.center_lane_deviation += self.distance_from_center
 
         # DEBUG: Draw current waypoint
-        # self.world.debug.draw_point(self.current_waypoint.transform.location, color=carla.Color(0, 255, 0), life_time=1.0)
+        self.world.debug.draw_point(self.current_waypoint.transform.location, color=carla.Color(0, 255, 0), life_time=1.0)
 
         # Calculate distance traveled
         self.distance_traveled += self.previous_location.distance(transform.location)

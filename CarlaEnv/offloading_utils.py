@@ -94,9 +94,9 @@ class OffloadingManager():
         self.input_size             = self.compute_input_size()
         self.bottleneck_size        = self.compute_bottleneck_size()
         self.full_local_latency     = full_local_latency[self.img_resolution][self.HW][self.arch]
-        if self.offload_position    == 'bottleneck':
+        if 'bottleneck' in self.offload_position:
             self.head_latency       = bottleneck_local_latency[self.img_resolution][self.HW][self.arch]
-        elif self.offload_position  == 'direct':
+        elif 'direct' in self.offload_position:
             self.head_latency       = 0
         self.local_power            = local_execution_power[self.HW]
         self.ret_size               = None             # return size from the control outputs
@@ -153,8 +153,13 @@ class OffloadingManager():
                 return 1
         return 0
 
+    def certify_deadline(self):
+        if self.deadline < self.full_local_latency: 
+            self.deadline = self.full_local_latency
+            print("Deadline modified to the local execution latency: ", self.full_local_latency)
+
     def verify_combinations(self):
-        return self.full_local_latency <= self.deadline
+        return self.full_local_latency < self.deadline
 
     def evaluate(self, tu, td=None):   
         # Estimate energy based on Upload and Download throughput in Mbps           
@@ -209,6 +214,10 @@ class OffloadingManager():
     def compute_comm_latency(self, tu):
         if self.offload_position == 'direct':
             upload_latency = self.estimate_comm_latency(self.input_size, tu)
+        elif self.offload_position == '0.5_direct':
+            upload_latency = self.estimate_comm_latency(self.input_size*0.5, tu)
+        elif self.offload_position == '0.25_direct':
+            upload_latency = self.estimate_comm_latency(self.input_size*0.25, tu)
         elif self.offload_position == 'bottleneck':
             upload_latency = self.estimate_comm_latency(self.bottleneck_size, tu)
         else:
@@ -222,14 +231,16 @@ class OffloadingManager():
             return (1280*720*3)*8  / (1024**2) 
         elif self.img_resolution == '1080p':
             return (1920*1080*3)*8  / (1024**2) 
-        elif self.img_resolution == 'nuScences':
-            return (1600*900*3)*8 / (1024**2)   
         elif self.img_resolution == 'Radiate':
-            return (672*376*3)*8 / (1024**2)          
-        elif self.img_resolution == 'TeslaFSD':
-            return (1280*960*3)*8 / (1024**2)
-        elif self.img_resolution == 'Waymo':
-            return (1920*1280*3)*8 / (1024**2) 
+            return (672*376*3)*8 / (1024**2) 
+        # elif self.img_resolution == 'nuScences':
+        #     return (1600*900*3)*8 / (1024**2)   
+        # elif self.img_resolution == 'TeslaFSD':
+        #     return (1280*960*3)*8 / (1024**2)
+        # elif self.img_resolution == 'Waymo':
+        #     return (1920*1280*3)*8 / (1024**2)
+        # elif self.img_resolution == '360p':
+        #     return (640*360*3)*8 / (1024**2)  
         else:
             raise ValueError("Resolution not supported!")
 
@@ -240,14 +251,16 @@ class OffloadingManager():
             return ((1280/8)*(720/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)         
         elif self.img_resolution == '1080p':
             return ((1920/8)*(1080/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)
-        elif self.img_resolution == 'nuScences':
-            return ((1600/8)*(900/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)        
         elif self.img_resolution == 'Radiate':
-            return ((672/8)*(376/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)        
-        elif self.img_resolution == 'TeslaFSD':
-            return ((1280/8)*(960/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)   
-        elif self.img_resolution == 'Waymo':
-            return ((1920/8)*(1280/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)            
+            return ((672/8)*(376/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)  
+        # elif self.img_resolution == 'nuScences':
+        #     return ((1600/8)*(900/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)              
+        # elif self.img_resolution == 'TeslaFSD':
+        #     return ((1280/8)*(960/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)   
+        # elif self.img_resolution == 'Waymo':
+        #     return ((1920/8)*(1280/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)  
+        # elif self.img_resolution == '360p':
+        #     return ((640/8)*(360/8)*self.bottleneck_ch) * self.bottleneck_quant / (1024**2)          
         else:
             raise ValueError("Resolution not supported!")
 

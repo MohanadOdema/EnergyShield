@@ -15,7 +15,7 @@ from utils import VideoRecorder, compute_gae, plot_trajectories
 from vae.models import ConvVAE, MlpVAE
 
 from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
-# from CarlaEnv.agents.navigation import basic_agent, behavior_agent
+from CarlaEnv.agents.navigation import basic_agent, behavior_agent
 
 
 def train(params, start_carla=True, restart=False):
@@ -114,32 +114,7 @@ def train(params, start_carla=True, restart=False):
 
     # Create model
     print("Creating model")
-    model = PPO(input_shape, env.action_space,
-                learning_rate=learning_rate, lr_decay=lr_decay,
-                epsilon=ppo_epsilon, initial_std=initial_std,
-                value_scale=value_scale, entropy_scale=entropy_scale,
-                model_dir=os.path.join("models", model_name), 
-                subdirs=subdirs_path)
-
-    # Prompt to load existing model if any
-    # if not restart:
-    #     if os.path.isdir(model.log_dir) and len(os.listdir(model.log_dir)) > 0:
-    #         answer = input("Model \"{}\" already exists. Do you wish to continue (C) or restart training (R)? ".format(model_name))
-    #         if answer.upper() == "C":
-    #             pass
-    #         elif answer.upper() == "R":
-    #             restart = True
-    #         else:
-    #             raise Exception("There are already log files for model \"{}\". Please delete it or change model_name and try again".format(model_name))
-    
-    if restart:
-        shutil.rmtree(model.model_dir)
-        for d in model.dirs:
-            os.makedirs(d)
-    model.init_session()
-    if not restart:
-        model.load_latest_checkpoint()
-    model.write_dict_to_summary("hyperparameters", params, 0)
+    model = basic_agent()
 
     # For every episode
     train_data_path = os.path.join(subdirs_path, "train_data.csv")

@@ -53,8 +53,8 @@ class BasicAgent(Agent):
         """
 
         start_waypoint = self._map.get_waypoint(self._vehicle.get_location())
-        end_waypoint = self._map.get_waypoint(
-            carla.Location(location[0], location[1], location[2]))
+        end_waypoint = self._map.get_waypoint(location)
+            # carla.Location(location[0], location[1], location[2]))
 
         route_trace = self._trace_route(start_waypoint, end_waypoint)
         assert route_trace
