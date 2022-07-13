@@ -1,4 +1,5 @@
 import types
+import os
 
 import cv2
 import numpy as np
@@ -50,6 +51,16 @@ def compute_gae(rewards, values, bootstrap_values, terminals, gamma, lam):
     deltas = rewards + (1.0 - terminals) * gamma * values[1:] - values[:-1]
     return scipy.signal.lfilter([1], [1, -gamma * lam], deltas[::-1], axis=0)[::-1]
 
+def count_flags(miss_flag):
+    previous = 0
+    counter = []
+    for flag in miss_flag:
+        current = previous + flag
+        counter.append(current)
+        previous = current
+    assert len(counter) == len(miss_flag)
+    return counter
+
 # plots
 def plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, plot_dir, episode_idx):
     plt.figure()
@@ -59,5 +70,37 @@ def plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstac
     plt.plot(completed_x, completed_y, 'r-.')
     # plt.xlim([180, 430])
     # plt.ylim([-410,-120])
-    plt.savefig(plot_dir + '/train_' + str(episode_idx) + '.png')
+    plt.savefig(plot_dir + '/train_' + str(episode_idx) + '_xy.png')
     plt.close()
+
+def plot_energy_stats(exp_latency, exp_energy, exp_tu, miss_flag, plot_dir, episode_idx, params):
+    accum_miss = count_flags(miss_flag)
+    index_list = np.arange(len(accum_miss))
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    ax1.plot(index_list, exp_energy, 'g-')
+    ax2.plot(index_list, accum_miss, 'b-')
+    ax1.set_xlabel("Deadline %d index" % params['deadline'])
+    ax1.set_ylabel("Energy")
+    ax2.set_ylabel("Missed deadlines")
+    plt.savefig(plot_dir + '/train_' + str(episode_idx) + '_ergy.png')
+    plt.close()
+
+# create directories
+class dir_manager():
+    def __init__(self, model_dir="./", subdirs=""):
+        self.ep_counter = 0
+        self.model_dir = model_dir
+        self.subdirs = subdirs
+        self.checkpoint_dir = "{}/checkpoints/".format(self.model_dir)
+        self.log_dir        = "{}/logs/".format(self.subdirs)
+        self.video_dir      = "{}/videos/".format(self.subdirs)
+        self.plot_dir       = "{}/plots/".format(self.subdirs)
+        self.dirs = [self.checkpoint_dir, self.log_dir, self.video_dir, self.plot_dir]
+        for d in self.dirs: os.makedirs(d, exist_ok=True)
+
+    def get_episode_idx(self):
+        return self.ep_counter                # hard-coded for automated navigation
+
+    def inc_count(self):
+        self.ep_counter = self.ep_counter + 1

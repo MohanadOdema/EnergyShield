@@ -11,12 +11,11 @@ from vae_common import create_encode_state_fn, load_vae
 from ppo import PPO
 from reward_functions import reward_functions
 # from run_eval import run_eval
-from utils import VideoRecorder, compute_gae, plot_trajectories
+from utils import VideoRecorder, compute_gae, plot_trajectories, plot_energy_stats, dir_manager
 from vae.models import ConvVAE, MlpVAE
 
 from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
 # from CarlaEnv.agents.navigation import basic_agent, behavior_agent
-
 
 def train(params, start_carla=True, restart=False):
     # Read parameters
@@ -50,10 +49,11 @@ def train(params, start_carla=True, restart=False):
     test                        = params["test"]
     gaussian                    = params["gaussian"]
     track                       = params["track"]
-    follow_waypoints            = params["follow_waypoints"]
+    deadline                    = params["deadline"]
 
+    subdirs_path = os.path.join("models", model_name, "experiments", params['img_resolution'], params['arch'], params['offload_policy'], params['offload_position'], params['HW']+"_"+str(params['deadline']))
 
-    if 'mimic' not in params['arch'] and params["offload_position"] == 'bottleneck':
+    if 'mimic' not in params['arch'] and 'bottleneck' in params["offload_position"]:
         if params['arch'] == 'ResNet18':
             params['arch'] = 'ResNet18_mimic'
         elif params['arch'] == 'ResNet50':
@@ -63,6 +63,8 @@ def train(params, start_carla=True, restart=False):
         else:
             raise ValueError("No mimic architecture supported for the selected architecture!")
 
+    # if not model_name.startswith("agent") and num_episodes > 0:                # lazy hard-coding
+    #     num_episodes = num_episodes - 6000     
 
     # Set seeds
     if isinstance(seed, int):
@@ -77,10 +79,10 @@ def train(params, start_carla=True, restart=False):
     params["vae_z_dim"] = vae.z_dim
     params["vae_model_type"] = "mlp" if isinstance(vae, MlpVAE) else "cnn"
 
-    print("")
-    print("Training parameters:")
-    for k, v, in params.items(): print('  {} , {}'.format(k,v))
-    print("")
+    # print("")
+    # print("Training parameters:")
+    # for k, v, in params.items(): print('  {} , {}'.format(k,v))
+    # print("")
 
     # Create state encoding fn
     measurements_to_include = set(["steer", "throttle", "speed", "xi", "r"])        # OD: remaining state observations; vehicle inertial measurements and the last two terms representing relative angle and distance between vehicle and nearest obstacle
@@ -101,6 +103,7 @@ def train(params, start_carla=True, restart=False):
                    penalize_dist_obstacle=penalize_dist_obstacle,
                    gaussian=gaussian,
                    track=track,
+                   model_name=model_name,
                    params=params)
     if isinstance(seed, int):
         env.seed(seed)
@@ -108,19 +111,21 @@ def train(params, start_carla=True, restart=False):
 
     # Environment constants
     input_shape = np.array([vae.z_dim + len(measurements_to_include)])
-    num_actions = env.action_space.shape[0]
-
-    subdirs_path = os.path.join("models", model_name, "experiments", params['img_resolution'], params['arch'], params['offload_policy']+"_"+params['HW']+"_"+str(params['deadline']))
+    num_actions = env.action_space.shape[0]         # steer and throttle if PPO
 
     # Create model
-    print("Creating model")
-    model = PPO(input_shape, env.action_space,
-                learning_rate=learning_rate, lr_decay=lr_decay,
-                epsilon=ppo_epsilon, initial_std=initial_std,
-                value_scale=value_scale, entropy_scale=entropy_scale,
-                model_dir=os.path.join("models", model_name), 
-                subdirs=subdirs_path)
-
+    if model_name.startswith('agent'): 
+        print("Creating model")
+        model = PPO(input_shape, env.action_space,
+                    learning_rate=learning_rate, lr_decay=lr_decay,
+                    epsilon=ppo_epsilon, initial_std=initial_std,
+                    value_scale=value_scale, entropy_scale=entropy_scale,
+                    model_dir=os.path.join("models", model_name), 
+                    subdirs=subdirs_path)
+    else:
+        print("Direct automated control following route")
+        model = dir_manager(model_dir=os.path.join("models", model_name), subdirs=subdirs_path)
+       
     # Prompt to load existing model if any
     # if not restart:
     #     if os.path.isdir(model.log_dir) and len(os.listdir(model.log_dir)) > 0:
@@ -136,10 +141,11 @@ def train(params, start_carla=True, restart=False):
         shutil.rmtree(model.model_dir)
         for d in model.dirs:
             os.makedirs(d)
-    model.init_session()
-    if not restart:
-        model.load_latest_checkpoint()
-    model.write_dict_to_summary("hyperparameters", params, 0)
+    if model_name.startswith('agent'):
+        model.init_session()
+        if not restart:
+            model.load_latest_checkpoint()
+        model.write_dict_to_summary("hyperparameters", params, 0)
 
     # For every episode
     train_data_path = os.path.join(subdirs_path, "train_data.csv")
@@ -165,7 +171,7 @@ def train(params, start_carla=True, restart=False):
                 env_seed = seed
             else:
                 env_seed = episode_idx
-            state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0  # 'state' constitues multipe components
+            state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0
             # print(state) # state is the 64-dim encoder output + 5 measurements to include
             if record_eval:
                 rendered_frame = env.render(mode="rgb_array")
@@ -179,18 +185,28 @@ def train(params, start_carla=True, restart=False):
                 video_recorder.add_frame(rendered_frame)
             else:
                 video_recorder = None
+
+            path = '/home/mohanadodema/shielding_offloads/' + model.log_dir + str(episode_idx) + '_log.log'
+            print(path)
+            # exit(0)
+
+            env.client.start_recorder(path, True)   # need to generalize to PPO agents experiments
+
             # Reset environment
             ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none= [], [], [], [], [], [], [], [], [], [], [], [], []
             probe_tu, exp_tu, selected_action, correct_action, probe_latency, probe_energy, actual_latency, actual_energy, exp_latency, exp_energy, miss_flag = [], [], [], [], [], [], [], [], [], [], []
 
             # While episode not done
-            print("Episode {} (Step {})".format(episode_idx,model.get_train_step_idx()))
+            try:
+                print("Episode {} (Step {})".format(episode_idx,model.get_train_step_idx()))
+            except AttributeError:
+                print("Episode {}".format(episode_idx))
             route, current_waypoint_index = None, None
             while not terminal_state:
                 states, taken_actions, values, rewards, dones = [], [], [], [], []
                 for _ in range(horizon):               # number of steps to simulate per training step (128)
-                    if follow_waypoints:
-                        action, value = 'auto', 0
+                    if not model_name.startswith('agent'):
+                        action, value = np.array([0, 0]), 0
                     else: 
                         action, value = model.predict(state, write_to_summary=True)
                     # Perform action
@@ -204,7 +220,6 @@ def train(params, start_carla=True, restart=False):
                         # "",
                         "Value:  % 20.2f" % value
                     ])
-
 
                     if video_recorder is not None:
                         rendered_frame = env.render(mode="rgb_array")
@@ -261,8 +276,11 @@ def train(params, start_carla=True, restart=False):
                         break
 
                 # Calculate last value (bootstrap value)
-                _, last_values = model.predict(state) # []
-
+                if model_name.startswith('agent'):
+                    _, last_values = model.predict(state) # []
+                else:
+                    last_values = 1.0            # dummy values
+                
                 # Compute GAE -- Generalized Advantage Estimator
                 advantages = compute_gae(rewards, values, last_values, dones, discount_factor, gae_lambda)
                 returns = advantages + values
@@ -281,7 +299,7 @@ def train(params, start_carla=True, restart=False):
                 assert advantages.shape == (T,)
 
                 # Train for some number of epochs
-                if not test:
+                if (not test) and (model_name.startswith('agent')):
                     model.update_old_policy() # θ_old <- θ
                 for _ in range(num_epochs):
                     num_samples = len(states)
@@ -296,10 +314,12 @@ def train(params, start_carla=True, restart=False):
                         mb_idx = indices[begin:end]
 
                         # Optimize network
-                        if not test:
+                        if (not test) and (model_name.startswith('agent')):
                             #print("train")
                             model.train(states[mb_idx], taken_actions[mb_idx],
                                     returns[mb_idx], advantages[mb_idx])
+
+            env.client.stop_recorder()
 
             # The direct waypoints route coordinates for plotting reference 
             completed_route = route[:current_waypoint_index]
@@ -307,8 +327,9 @@ def train(params, start_carla=True, restart=False):
             completed_y = [x.transform.location.y for (x,_) in completed_route]
 
             plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
+            plot_energy_stats(exp_latency, exp_energy, exp_tu, miss_flag, model.plot_dir, episode_idx, params)
 
-            df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
+            df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'ego_x': pd.Series(ego_x), 'ego_y': pd.Series(ego_y), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
                                 'miss_flag': pd.Series(miss_flag), 'probe_tu': pd.Series(probe_tu), 'exp_tu': pd.Series(exp_tu), 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action),
                                 'probe_latency': pd.Series(probe_latency), 'exp_latency': pd.Series(exp_latency), 'probe_energy': pd.Series(probe_energy), 'exp_energy': pd.Series(exp_energy)})
             df.to_csv(model.plot_dir + '/train_' + str(episode_idx) + '.csv')
@@ -326,12 +347,18 @@ def train(params, start_carla=True, restart=False):
                     with open(train_data_path, 'a', newline='') as fd:
                         csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                         csv_writer.writerow(data_row)
-            model.write_episodic_summaries()
+            if model_name.startswith('agent'):
+                model.write_episodic_summaries()
+            else:
+                model.inc_count()
 
-            if not test:
+            if (not test) and (model_name.startswith('agent')):
                 model.save()
+
         except KeyboardInterrupt:
             env.close()
+
+    env.close()
 
 if __name__ == "__main__":
     import argparse
@@ -366,7 +393,7 @@ if __name__ == "__main__":
     parser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
 
     # Training parameters
-    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name")
+    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'BasicAgent', 'BehaviorAgent'])
     parser.add_argument("--reward_fn", type=str,
                         default="reward_speed_centering_angle_multiply",
                         help="Reward function to use. See reward_functions.py for more info.")
@@ -391,13 +418,11 @@ if __name__ == "__main__":
 
     parser.add_argument("-restart", action="store_true",
                         help="If True, delete existing model in models/model_name before starting training")
-    parser.add_argument("-follow_waypoints", action="store_true",
-                        help="following waypoints rather than the RL agent")
 
     # AV pipeline Offloading
     parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet50')
     parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', '0.5_direct', '0.25_direct', 'bottleneck'], default='direct')
-    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe'], default='direct')    
+    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe'], default='offload')    
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
@@ -408,9 +433,7 @@ if __name__ == "__main__":
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
 
-    # Metrics to record (energy, missed deadlines, longest accumulated latency (99th percentile?))
-    # Maybe even do with sudden and no interrupts?
-    # shall I do like 50-100 episodes initially, and then average over the entire thingy?
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
     params = vars(parser.parse_args())
 

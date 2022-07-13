@@ -38,7 +38,9 @@ class CarlaOffloadEnv(gym.Env):
                  viewer_res=(1280, 720), obs_res=(1280, 720),       # spectator camera and dash camera resolutions
                  reward_fn=None, encode_state_fn=None, 
                  synchronous=True, fps=30, action_smoothing=0.9,
-                 start_carla=True, apply_filter=False, obstacle=False, penalize_steer_diff=False, penalize_dist_obstacle=False, gaussian=False, track=1, params=None, mode='train'):
+                 start_carla=True, apply_filter=False, obstacle=False, 
+                 penalize_steer_diff=False, penalize_dist_obstacle=False, 
+                 gaussian=False, track=1, model_name='BasicAgent', params=None, mode='train'):
         """
             Initializes a gym-like environment that can be used to interact with CARLA.
 
@@ -63,8 +65,8 @@ class CarlaOffloadEnv(gym.Env):
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
         self.position_multiplier    = params["pos_mul"]
-        self.follow_waypoints       = params["follow_waypoints"]
         self.agent                  = None
+        self.model_name             = model_name
 
         self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)
@@ -99,7 +101,7 @@ class CarlaOffloadEnv(gym.Env):
         try:
             # Connect to carla
             self.client = carla.Client(host, port)
-            self.client.set_timeout(2.0)
+            self.client.set_timeout(2)
 
             # Create world wrapper
             self.world = World(self.client)
@@ -120,7 +122,7 @@ class CarlaOffloadEnv(gym.Env):
                 end_index   = 205           # These spawn positions are on the lane path [3,7,69,197,205,239]
                 road_option_count = 1
             lap_start_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[start_index].location)
-            spawn_transform = lap_start_wp.transform
+            spawn_transform = lap_start_wp.transform                                    # Location(x=406.002960, y=-122.577194, z=0.000000)
             spawn_transform.location += carla.Location(z=1.0)
             lap_end_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[end_index].location)
             spawn_transform_end = lap_end_wp.transform
@@ -130,9 +132,9 @@ class CarlaOffloadEnv(gym.Env):
                                                                RoadOption.STRAIGHT]*road_option_count)  # + [RoadOption.RIGHT] * 2 + [RoadOption.STRAIGHT] * 5)
             self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//4)]
 
-            self.destination = self.route_waypoints[100][0].transform.location
+            self.destination = self.route_waypoints[-1][0].transform.location
+            # self.destination = carla.Location(x=407.009613, y=-229.571365, z=0)       # actual dimensions of last element in self.route_waypoints
 
-            # print(len(self.route_waypoints))
             self.current_waypoint_index = 0
             self.checkpoint_waypoint_index = 0
 
@@ -140,8 +142,10 @@ class CarlaOffloadEnv(gym.Env):
                                    on_collision_fn=lambda e: self._on_collision(e),
                                    on_invasion_fn=lambda e: self._on_invasion(e))
 
-            if self.follow_waypoints:
-                self.agent = BasicAgent(self.vehicle)
+            if self.model_name == 'BasicAgent':
+                self.agent = BasicAgent(self.vehicle, target_speed=40)
+            elif self.model_name == 'BehaviorAgent':
+                self.agent = BehaviorAgent(self.vehicle, target_speed=40)
 
             # Create hud
             self.hud = HUD(width, height)  
@@ -214,7 +218,6 @@ class CarlaOffloadEnv(gym.Env):
         self.energy_monitor.reset()     # reset stats for new episode
 
         if self.agent is not None:
-            print(self.destination)
             self.agent.set_destination(self.destination)
 
         # Creating obstacles
@@ -224,9 +227,12 @@ class CarlaOffloadEnv(gym.Env):
                 print("len_obstacles", len(self.obstacles))
                 #self.valid_obstacle = True
                 if self.track == 1:
-                    spawn_idx = random.randint(60,90)
+                    spawn_idx = random.randint(50,80)
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
                 spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
+                if not self.model_name.startswith('agent'):
+                    # displace object out of the center of the lane 
+                    spawn_transform.location.x = spawn_transform.location.x + 1.2
                 if (not is_training) and gaussian:
                     spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                     spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
@@ -245,6 +251,9 @@ class CarlaOffloadEnv(gym.Env):
                                 continue
                             spawn_transform = self.route_waypoints[current_idx + spawn_idx][0].transform
                             spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
+                            if not self.model_name.startswith('agent'):
+                                # displace object out of the center of the lane 
+                                spawn_transform.location.x = spawn_transform.location.x + 1.2
                             if (not is_training) and gaussian:
                                 spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                                 spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
@@ -262,6 +271,9 @@ class CarlaOffloadEnv(gym.Env):
                     # The next spawning position in the loop
                     spawn_transform = self.route_waypoints[spawn_idx + current_idx][0].transform
                     spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
+                    if not self.model_name.startswith('agent'):
+                        # displace object out of the center of the lane 
+                        spawn_transform.location.x = spawn_transform.location.x + 1.2
                     # add some randomization
                     if (not is_training) and gaussian:
                         spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
@@ -338,7 +350,9 @@ class CarlaOffloadEnv(gym.Env):
             # "Avg center dev:    % 7.2f m"  % (self.center_lane_deviation / self.step_count),
             "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
             "",
-            "Deadline:         % 1.0f ms"   % (self.energy_monitor.deadline),
+            "Architecture:    %s        "  % (self.energy_monitor.arch),
+            "Policy:          %s        "  % (self.energy_monitor.offload_policy),
+            "Deadline:         % 1.0f ms"  % (self.energy_monitor.deadline),
             "Probe tu:        %7.2f Mbps"  % (self.probe_tu),
             "Delta tu:        %7.2f Mbps"  % (self.delta_tu),
             "",
@@ -428,7 +442,7 @@ class CarlaOffloadEnv(gym.Env):
             self.close()
         self.energy_monitor.determine_offloading_decision(self.probe_tu, self.delta_tu)      
        
-        if self.follow_waypoints:
+        if not self.model_name.startswith('agent') and action is not None:
             control = self.agent.run_step()
             steer = control.steer
             throttle = control.throttle
@@ -443,17 +457,11 @@ class CarlaOffloadEnv(gym.Env):
             # self.vehicle.apply_control(control)
 
             # self.vehicle.set_autopilot(True)
-            rl_steer = self.vehicle.control.steer
-            rl_throttle = self.vehicle.control.throttle
-            filter_steer = self.vehicle.control.steer
-            filter_throttle = self.vehicle.control.throttle
 
         elif action is not None:
             steer, throttle = [float(a) for a in action]
             self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
             self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
-            rl_steer = self.vehicle.control.steer
-            rl_throttle = self.vehicle.control.throttle
             if self.safety_filter is not None:
                 self.safety_filter.set_filter_inputs(self.xi, self.r)
                 self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
@@ -461,8 +469,10 @@ class CarlaOffloadEnv(gym.Env):
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
 
-            filter_steer = self.vehicle.control.steer
-            filter_throttle = self.vehicle.control.throttle    
+        rl_steer = self.vehicle.control.steer
+        rl_throttle = self.vehicle.control.throttle
+        filter_steer = self.vehicle.control.steer
+        filter_throttle = self.vehicle.control.throttle 
 
         #filter_data = {rl_steer, rl_throttle, filter_steer, filter_throttle, xi, r}
         # Tick game
@@ -508,7 +518,7 @@ class CarlaOffloadEnv(gym.Env):
         obstacle_y = None
         if self.obstacle_en:
             r_v = np.array([self.vehicle.get_transform().location.x, self.vehicle.get_transform().location.y]) - np.array(
-                [self.obstacles[self.obstacle_counter].get_transform().location.x, self.obstacles[self.obstacle_counter].get_transform().location.y]) # could just compare self.r from 394?
+                [self.obstacles[self.obstacle_counter].get_transform().location.x, self.obstacles[self.obstacle_counter].get_transform().location.y])
             distance_to_obstacle = np.linalg.norm(r_v)
             if distance_to_obstacle < self.min_distance_to_obstacle:
                 self.min_distance_to_obstacle = distance_to_obstacle
@@ -533,7 +543,7 @@ class CarlaOffloadEnv(gym.Env):
         self.center_lane_deviation += self.distance_from_center
 
         # DEBUG: Draw current waypoint
-        self.world.debug.draw_point(self.current_waypoint.transform.location, color=carla.Color(0, 255, 0), life_time=1.0)
+        # self.world.debug.draw_point(self.current_waypoint.transform.location, color=carla.Color(0, 255, 0), life_time=1.0)
 
         # Calculate distance traveled
         self.distance_traveled += self.previous_location.distance(transform.location)

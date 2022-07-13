@@ -159,7 +159,7 @@ class OffloadingManager():
             print("Deadline modified to the local execution latency: ", self.full_local_latency)
 
     def verify_combinations(self):
-        return self.full_local_latency < self.deadline
+        return self.full_local_latency <= self.deadline
 
     def evaluate(self, tu, td=None):   
         # Estimate energy based on Upload and Download throughput in Mbps           
