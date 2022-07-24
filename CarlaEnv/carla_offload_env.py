@@ -39,7 +39,7 @@ class CarlaOffloadEnv(gym.Env):
                  reward_fn=None, encode_state_fn=None, 
                  synchronous=True, fps=30, action_smoothing=0.9,
                  start_carla=True, apply_filter=False, obstacle=False, 
-                 penalize_steer_diff=False, penalize_dist_obstacle=False, 
+                 penalize_steer_diff=False, penalize_dist_obstacle=False,
                  gaussian=False, track=1, model_name='BasicAgent', params=None, mode='train'):
         """
             Initializes a gym-like environment that can be used to interact with CARLA.
@@ -103,6 +103,16 @@ class CarlaOffloadEnv(gym.Env):
             self.client = carla.Client(host, port)
             self.client.set_timeout(2)
 
+            # reload the map
+            if params['carla_map'] is not None:
+                world = self.client.load_world(params['carla_map'])
+            if params['weather'] is not None:
+                if not hasattr(carla.WeatherParameters, params['weather']):
+                    print('ERROR: weather preset %r not found.' % params['weather'])
+                else:
+                    print('set weather preset %r.' % params['weather'])
+                    world.set_weather(getattr(carla.WeatherParameters, params['weather']))   
+
             # Create world wrapper
             self.world = World(self.client)
 
@@ -113,6 +123,8 @@ class CarlaOffloadEnv(gym.Env):
                 settings = self.world.get_settings()
                 settings.fixed_delta_seconds = 0.01     # Fixed time step in the simulation environment
                 settings.synchronous_mode = True
+                if params['no_rendering']:
+                    settings.no_rendering_mode = True
                 self.world.apply_settings(settings)
 
             # Get spawn location

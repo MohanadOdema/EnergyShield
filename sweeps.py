@@ -7,6 +7,13 @@ import math
 import tensorflow as tf
 from multiprocessing import Process
 
+def det_max_deadline(lower, step, multiplier):
+	i = 1
+	while (round(lower) + i) % step != 0:
+		i = i + 1 
+	current = round(lower) + i
+	return current + step * multiplier
+
 if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(description="Repeat experimental analysis across multiple deadlines")
@@ -27,8 +34,8 @@ if __name__ == "__main__":
 
 	# VAE parameters
 	parser.add_argument("--vae_model", type=str,
-	                    default="vae/models/seg_bce_cnn_zdim64_beta1_kl_tolerance0.0_data/",
-	                    help="Trained VAE model to load")
+						default="vae/models/seg_bce_cnn_zdim64_beta1_kl_tolerance0.0_data/",
+						help="Trained VAE model to load")
 	parser.add_argument("--vae_model_type", type=str, default=None, help="VAE model type (\"cnn\" or \"mlp\")")
 	parser.add_argument("--vae_z_dim", type=int, default=None, help="Size of VAE bottleneck")
 
@@ -41,15 +48,15 @@ if __name__ == "__main__":
 	# Training parameters
 	parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'BasicAgent', 'BehaviorAgent'])
 	parser.add_argument("--reward_fn", type=str,
-	                    default="reward_speed_centering_angle_multiply",
-	                    help="Reward function to use. See reward_functions.py for more info.")
+						default="reward_speed_centering_angle_multiply",
+						help="Reward function to use. See reward_functions.py for more info.")
 	parser.add_argument("--seed", type=int, default=0,
-	                    help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed " +
-	                         "with this option in our experience)")
+						help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed " +
+							 "with this option in our experience)")
 	parser.add_argument("--eval_interval", type=int, default=100, help="Number of episodes between evaluation runs")
 	parser.add_argument("-record_eval", action="store_true", default=False,
-	                    help="If True, save videos of evaluation episodes " +
-	                         "to models/model_name/videos/")
+						help="If True, save videos of evaluation episodes " +
+							 "to models/model_name/videos/")
 
 	# Safety Filter Setting
 	parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
@@ -63,7 +70,7 @@ if __name__ == "__main__":
 	parser.add_argument("-test", action="store_true", default=False, help="test")
 
 	parser.add_argument("-restart", action="store_true",
-	                    help="If True, delete existing model in models/model_name before starting training")
+						help="If True, delete existing model in models/model_name before starting training")
 
 	# AV pipeline Offloading
 	parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic', 'all'], default='ResNet50')
@@ -79,10 +86,15 @@ if __name__ == "__main__":
 	parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
 	parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
 
+    # Carla Config file
+	parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
+	parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
+	parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
+
 	# Deadline sweep settings
-	parser.add_argument("--lower_bound", type=int, default=None, help="override the minimal deadline value")
+	parser.add_argument("--start_iter", type=int, default=None, help="override the minimal deadline value")
 	parser.add_argument("--stepsize", type=int, default=10, help="deadline increments in ms")
-	parser.add_argument("--upper_bound", type=int, default=200, help="maximum deadline sweep value")
+	parser.add_argument("--multiplier", type=int, default=10, help="maximum deadline sweep value")
 
 	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
@@ -97,23 +109,23 @@ if __name__ == "__main__":
 	else:
 		architectures=[params['arch']]
 
-	# sweep over offloading positions
-	if params['offload_position'] == 'all':
-		positions=['direct', '0.5_direct', '0.25_direct', 'bottleneck']
-	else:
-		positions=[params['offload_position']]
-
 	# sweep over offloading policies
 	if params['offload_policy'] == 'all':
 		policies=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe']
 	else:
 		policies=[params['offload_policy']]
 
+	# sweep over offloading positions
+	if params['offload_position'] == 'all':
+		positions=['direct', '0.5_direct', '0.25_direct', 'bottleneck']
+	else:
+		positions=[params['offload_position']]
+
 	# sweep over image resolutions
 	if params['img_resolution'] == 'all':
 		resolutions=['Radiate', '480p', '720p']
 	else:
-		resolutions=[params['img_resolution']]			
+		resolutions=[params['img_resolution']]
 
 	for resolution in resolutions:
 		print('-'*80)
@@ -121,31 +133,43 @@ if __name__ == "__main__":
 		for architecture in architectures:
 			print('-'*80)
 			params['arch'] = architecture 
-			for position in positions: 					
+			for policy in policies:
 				print('-'*80)
-				params['offload_position'] = position
-				for policy in policies:
+				params['offload_policy'] = policy 
+				for position in positions: 					
 					print('-'*80)
-					params['offload_policy'] = policy 
-						print('resolution', params['img_resolution'], '\tarch:', params['arch'], '\tposition:',params['offload_position'], '\tpolicy:', params['offload_policy'])
-						# sweep over deadlines
-						if params["lower_bound"] == None:
-							params["lower_bound"] = full_local_latency[params["img_resolution"]][params["HW"]][params["arch"]]
-						assert params["lower_bound"] > 0 and params["upper_bound"] > params["lower_bound"]
-						params["deadline"] = params["lower_bound"]
-						p = Process(target=train, args=(params, True, False,)) 				# Using this format to kill a client's TCP connection once finished
-						# train(params, True, False) 
-						p.start()
-						p.join()
-						if p.is_alive():
-							p.kill()	
-						while params["deadline"] <= params["upper_bound"]:
-							params["deadline"] = round(params["deadline"]) + 1     # To get readings at multiples of common numbers as 5,10,etc
-							if params["deadline"] % params["stepsize"] == 0:
-								tf.compat.v1.reset_default_graph()
-								p = Process(target=train, args=(params, True, False,))
-								# train(params, True, False) 
-								p.start()
-								p.join()
-								if p.is_alive():
-									p.kill()		
+					params['offload_position'] = position
+					if (params['offload_position'] in ['0.5_direct', '0.25_direct']) and (params['offload_policy'] == 'local'):
+						continue 			# local will not change
+					params['arch'] = params['arch'][:8]     # prefix string (e.g., ResNet18)
+					if 'mimic' not in params['arch'] and 'bottleneck' in params["offload_position"]:
+						params['arch'] = params['arch'] + '_mimic'
+					print('resolution', params['img_resolution'], '\tarch:', params['arch'], '\tposition:',params['offload_position'], '\tpolicy:', params['offload_policy'])
+					# sweep over deadlines
+					lower_bound = full_local_latency[params["img_resolution"]][params["HW"]][params["arch"]]
+					max_deadline_value = det_max_deadline(lower_bound, params['stepsize'], params['multiplier'])
+					if params['start_iter'] is None:
+						deadline = lower_bound
+					else:
+						deadline = params['start_iter']
+						params['start_iter'] = None 		# start fresh next combination
+					assert deadline <= max_deadline_value and deadline >= lower_bound
+					params["deadline"] = deadline
+					p = Process(target=train, args=(params, True, False,)) 				# Using this format to kill a client's TCP connection once finished
+					# train(params, True, False) 
+					p.start()
+					p.join()
+					if p.is_alive():
+						p.kill()	
+					# print(params["deadline"])
+					while params["deadline"] <= max_deadline_value:
+						params["deadline"] = round(params["deadline"]) + 1     # To get readings at multiples of common numbers as 5,10,etc
+						if params["deadline"] % params["stepsize"] == 0:
+							tf.compat.v1.reset_default_graph()
+							p = Process(target=train, args=(params, True, False,))
+							# train(params, True, False) 
+							p.start()
+							p.join()
+							if p.is_alive():
+								p.kill()		
+							# print(params['deadline'])

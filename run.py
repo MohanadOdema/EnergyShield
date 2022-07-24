@@ -105,6 +105,12 @@ def train(params, start_carla=True, restart=False):
                    track=track,
                    model_name=model_name,
                    params=params)
+
+    if params['carla_map'] is not None: 
+        params['carla_map'] = None          # To only load the map once
+    if params['weather'] is not None:
+        params['weather'] = None
+
     if isinstance(seed, int):
         env.seed(seed)
     best_eval_reward = -float("inf")
@@ -432,6 +438,11 @@ if __name__ == "__main__":
     parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
+
+    # Carla Config file
+    parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
+    parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
+    parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 

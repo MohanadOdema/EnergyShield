@@ -1,4 +1,3 @@
-import carla
 import random
 import time
 import math

@@ -227,10 +227,10 @@ class Obstacle(CarlaActorBase):
 class Vehicle(CarlaActorBase):
     def __init__(self, world, transform=carla.Transform(),
                  on_collision_fn=None, on_invasion_fn=None,
-                 vehicle_type="vehicle.ford.mustang"):
+                 vehicle_type="vehicle.audi.a2"):
         # Setup vehicle blueprint
         vehicle_bp = world.get_blueprint_library().find(vehicle_type)
-        color = vehicle_bp.get_attribute("color").recommended_values[0]
+        color = vehicle_bp.get_attribute("color").recommended_values[2]
         vehicle_bp.set_attribute("color", color)
 
         world.destroy()
