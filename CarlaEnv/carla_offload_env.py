@@ -17,6 +17,7 @@ from offloading_utils import *
 from agents.navigation import *
 # from .navigation.behavior_agent import BehaviorAgent
 from OD_utils import *
+import cv2
 import math
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -65,8 +66,12 @@ class CarlaOffloadEnv(gym.Env):
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
         self.position_multiplier    = params["pos_mul"]
+        self.len_obs                = params["len_obs"]
+        self.obs_step               = params["obs_step"]
+        self.obs_start_idx          = params["obs_start_idx"]
         self.agent                  = None
         self.model_name             = model_name
+        self._queues                = []
 
         self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)
@@ -142,7 +147,14 @@ class CarlaOffloadEnv(gym.Env):
             self.route_waypoints = compute_route_waypoints(self.world.map, lap_start_wp, lap_end_wp, resolution=1.0,
                                                            plan=[
                                                                RoadOption.STRAIGHT]*road_option_count)  # + [RoadOption.RIGHT] * 2 + [RoadOption.STRAIGHT] * 5)
-            self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//4)]
+            if params["len_route"] == 'short':
+                self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//4)]
+            elif params["len_route"] == 'medium':
+                self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//2)]
+            elif params["len_route"] == 'full':
+                pass
+            else:
+                raise ValueError("Not supported road length!")
 
             self.destination = self.route_waypoints[-1][0].transform.location
             # self.destination = carla.Location(x=407.009613, y=-229.571365, z=0)       # actual dimensions of last element in self.route_waypoints
@@ -174,6 +186,11 @@ class CarlaOffloadEnv(gym.Env):
                                   attach_to=self.vehicle, on_recv_image=lambda e: self._set_viewer_image(e),
                                   sensor_tick=0.0 if self.synchronous else 1.0/self.fps)
 
+            # This is if following synchronous_mode.py  # observation buffers do the job 
+            # make_queue(self.world.on_tick)
+            # make_queue(self.dashcam.listen)
+            # make_queue(self.camera.listen)
+
             # Create obstacle
             self.obstacles = []
             self.create_obstacles = True
@@ -190,6 +207,19 @@ class CarlaOffloadEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         random.seed(seed)
         return [seed]
+
+    # This is if following synchronous_mode.py
+    # def make_queue(register_event):
+    #     q = queue.Queue()
+    #     register_event(q.put)
+    #     self._queues.append(q)
+
+    # # This is if following synchronous_mode.py
+    # def _retrieve_data(self, sensor_queue, timeout=2.0):
+    #     while True:
+    #         data = sensor_queue.get(timeout=timeout)
+    #         if data.frame == self.frame:
+    #             return data
 
     def reset(self, is_training=True, seed=0):
 
@@ -232,33 +262,39 @@ class CarlaOffloadEnv(gym.Env):
         if self.agent is not None:
             self.agent.set_destination(self.destination)
 
+        # print(len(self.route_waypoints))
+
         # Creating obstacles
         if self.obstacle_en:
             if random.random() < self.obstacle_percentage:
                 print("create obstacles")
-                print("len_obstacles", len(self.obstacles))
-                #self.valid_obstacle = True
+                print("current len_obstacles", len(self.obstacles), "out of requested", self.len_obs)
                 if self.track == 1:
-                    spawn_idx = random.randint(50,80)
+                    spawn_idx = random.randint(self.obs_start_idx-10, self.obs_start_idx+10)
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
-                spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
+                spawn_transform.rotation = carla.Rotation(yaw=spawn_transform.rotation.yaw-180)
                 if not self.model_name.startswith('agent'):
                     # displace object out of the center of the lane 
                     spawn_transform.location.x = spawn_transform.location.x + 1.2
                 if (not is_training) and gaussian:
                     spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                     spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
-                if self.track == 1:
-                    len_obs = 1
+                # if self.track == 1:
+                #     len_obs = 1
                 current_idx  = 0
-                for i in range(0,len_obs):
+                # step_size between obstacles
+                if self.obs_step <= 0:      # uniform
+                    obs_step_size = (len(self.route_waypoints) - self.obs_start_idx) // self.len_obs
+                else: 
+                    obs_step_size = self.obs_step          # original value = 40
+                for i in range(0, self.len_obs):
                     print("i", i)
                     if self.create_obstacles:
                         self.obstacles.append(Obstacle(self.world, spawn_transform))
                         ret_val = self.obstacles[i].is_valid()      
                         while ret_val is None:              
-                            print("try again")          # First obstacle spawning has an issue
-                            spawn_idx = random.randint(30,50)
+                            print("try again")          # I go to this loop for the second obstacle; sometimes obstacle spawning is not achieved properly in carla simulator
+                            spawn_idx = random.randint(obs_step_size-10, obs_step_size+10)
                             if (spawn_idx + current_idx)  >= len(self.route_waypoints):
                                 continue
                             spawn_transform = self.route_waypoints[current_idx + spawn_idx][0].transform
@@ -277,7 +313,7 @@ class CarlaOffloadEnv(gym.Env):
                         self.obstacles[i].set_transform(spawn_transform)
                     print(spawn_idx)
                     current_idx += spawn_idx
-                    spawn_idx = random.randint(30,50)
+                    spawn_idx = random.randint(obs_step_size-10, obs_step_size+10)
                     if spawn_idx + current_idx >= len(self.route_waypoints):
                         break
                     # The next spawning position in the loop
@@ -294,19 +330,20 @@ class CarlaOffloadEnv(gym.Env):
                 print("len obstacles", len(self.obstacles))
                 self.obstacle_counter = 0
 
-        if self.synchronous:
-            ticks = 0
-            while ticks < self.fps * 2:
-                self.world.tick()
-                # exit(0)
-                try:
-                    self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
-                    print('You cannot reach here if synchronous!')
-                except:
-                    pass
-                ticks += 1 
-        else:
-            time.sleep(2.0)
+        # if self.synchronous:
+        #     ticks = 0
+        #     while ticks < self.fps * 2:
+
+        #         self.world.tick()
+        #         # exit(0)
+        #         try:
+        #             self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
+        #             print('You cannot reach here if synchronous!')
+        #         except:
+        #             pass
+        #         ticks += 1 
+        # else:
+        #     time.sleep(2.0)
 
         self.terminal_state = False # Set to True when we want to end episode
         self.track_completed   = False
@@ -331,7 +368,7 @@ class CarlaOffloadEnv(gym.Env):
         self.laps_completed = 0.0
 
         # DEBUG: Draw path
-        # self._draw_path(life_time=1000.0, skip=10)
+        # self._draw_path(life_time=1000.0, skip=10)        
 
         # Return initial observation
         return self.step(None)[0]
@@ -385,10 +422,10 @@ class CarlaOffloadEnv(gym.Env):
         self.display.blit(pygame.surfarray.make_surface(self.viewer_image.swapaxes(0, 1)), (0, 0))
 
         # Superimpose current observation into top-right corner
-        obs_h, obs_w = self.observation.shape[:2]
+        obs_h, obs_w = self.observation_ds.shape[:2]
         view_h, view_w = self.viewer_image.shape[:2]
         pos = (view_w - obs_w - 10, 10)
-        self.display.blit(pygame.surfarray.make_surface(self.observation.swapaxes(0, 1)), pos)
+        self.display.blit(pygame.surfarray.make_surface(self.observation_ds.swapaxes(0, 1)), pos)
 
         # Render HUD
         self.hud.render(self.display, extra_info=self.extra_info)
@@ -403,7 +440,7 @@ class CarlaOffloadEnv(gym.Env):
             # Turn display surface into rgb_array
             return np.array(pygame.surfarray.array3d(self.display), dtype=np.uint8).transpose([1, 0, 2])
         elif mode == "state_pixels":
-            return self.observation
+            return self.observation_ds
     
     def obstacle_state_estimator(self, player_transform, obstacle_location, player_speed):
         r_v = np.array([player_transform.location.x, player_transform.location.y]) - np.array(
@@ -491,20 +528,32 @@ class CarlaOffloadEnv(gym.Env):
         self.hud.tick(self.world, self.clock)
         self.world.tick()
 
+        # ORIGINAL: FOR SOME REASON IMPLEMENTED LIKE SUCH and SLOWS THINGS DOWN
+        # I think it is wrong --> wait_for_tick should be used in asynchronous mode (see https://github.com/carla-simulator/carla/issues/3283)
+
         # Synchronous update logic
+        # if self.synchronous:
+        #     self.clock.tick()
+        #     while True:
+        #         try:
+        #             # self.world.tick()
+        #             self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
+        #             break
+        #         except:
+        #             # Timeouts happen occasionally for some reason, however, they seem to be fine to ignore
+        #             self.world.tick()
+        #         break
+
+
         if self.synchronous:
             self.clock.tick()
             while True:
-                try:
-                    self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
-                    break
-                except:
-                    # Timeouts happen occasionally for some reason, however, they seem to be fine to ignore
-                    self.world.tick()
+                self.world.tick()
                 break
-
+                
         # Get most recent observation and viewer image
         self.observation = self._get_observation()
+        self.observation_ds = self.downsample()
         self.viewer_image = self._get_viewer_image()
         encoded_state = self.encode_state_fn(self)      
 
@@ -650,6 +699,13 @@ class CarlaOffloadEnv(gym.Env):
         image = self.viewer_image_buffer.copy()
         self.viewer_image_buffer = None
         return image
+
+    def downsample(self):
+        if (not self.observation.shape[0] <= 80) and (not self.observation.shape[1] <= 160):
+            frame = cv2.resize(self.observation, dsize=(160,80))   # downsample for pretrained encoder (i believe columns and row are flipped in cv2)
+        else:
+            frame = self.observation
+        return frame
 
     def _on_collision(self, event):
         obstacle_name = get_actor_display_name(event.other_actor)

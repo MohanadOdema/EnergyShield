@@ -1,21 +1,33 @@
 import os
 import random
+import time
 import shutil
 import pandas as pd
 import numpy as np
+
 import tensorflow as tf
 import csv
 import matplotlib.pyplot as plt
 
 from vae_common import create_encode_state_fn, load_vae
 from ppo import PPO
+from ppo_cascade import PPO_CASCADE
 from reward_functions import reward_functions
 # from run_eval import run_eval
 from utils import VideoRecorder, compute_gae, plot_trajectories, plot_energy_stats, dir_manager
 from vae.models import ConvVAE, MlpVAE
 
+# Object Detection functionalities
+from detector import Detector
+from object_detection.utils import visualization_utils as viz_utils
+from object_detection.utils import label_map_util
+from object_detection.utils import config_util
+from object_detection.builders import model_builder
+
 from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
 # from CarlaEnv.agents.navigation import basic_agent, behavior_agent
+
+PATH_TO_LABELS = '/home/mohanadodema/TensorFlow/models/research/object_detection/data/mscoco_label_map.pbtxt'
 
 def train(params, start_carla=True, restart=False):
     # Read parameters
@@ -51,8 +63,6 @@ def train(params, start_carla=True, restart=False):
     track                       = params["track"]
     deadline                    = params["deadline"]
 
-    subdirs_path = os.path.join("models", model_name, "experiments", params['img_resolution'], params['arch'], params['offload_policy'], params['offload_position'], params['HW']+"_"+str(params['deadline']))
-
     if 'mimic' not in params['arch'] and 'bottleneck' in params["offload_position"]:
         if params['arch'] == 'ResNet18':
             params['arch'] = 'ResNet18_mimic'
@@ -63,8 +73,14 @@ def train(params, start_carla=True, restart=False):
         else:
             raise ValueError("No mimic architecture supported for the selected architecture!")
 
-    # if not model_name.startswith("agent") and num_episodes > 0:                # lazy hard-coding
-    #     num_episodes = num_episodes - 6000     
+    if params['observation_res'] == '80':
+        obs_res = (160,80)                      # order for CarlaEnv and VAE, reverse order for detector
+    elif params['observation_res'] == '480':
+        obs_res = (852,480)
+    else:
+        raise ValueError("{} is Unidentified resolution for observation frame.".format(params['observation_dims']))
+
+    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'], params['arch'], params['offload_policy'], params['offload_position'], params['HW']+"_"+str(params['deadline']))
 
     # Set seeds
     if isinstance(seed, int):
@@ -74,7 +90,6 @@ def train(params, start_carla=True, restart=False):
 
     # Load VAE
     vae = load_vae(vae_model, vae_z_dim, vae_model_type) # OD: load pretrained VAE that generates latent vecotrs from the RGB images to train the policy network  
-    
     # Override params for logging
     params["vae_z_dim"] = vae.z_dim
     params["vae_model_type"] = "mlp" if isinstance(vae, MlpVAE) else "cnn"
@@ -90,7 +105,7 @@ def train(params, start_carla=True, restart=False):
 
     # Create env
     print("Creating environment")
-    env = CarlaEnv(obs_res=(160, 80),
+    env = CarlaEnv(obs_res=obs_res,       # 160*80
                    action_smoothing=action_smoothing,
                    encode_state_fn=encode_state_fn,
                    reward_fn=reward_functions[reward_fn],
@@ -106,6 +121,9 @@ def train(params, start_carla=True, restart=False):
                    model_name=model_name,
                    params=params)
 
+    object_detector = Detector(input_shape=obs_res[::-1])#, model='FasterRCNN_ResNet152')            # needs proper input size and architecture choice as arguments
+    category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)   
+
     if params['carla_map'] is not None: 
         params['carla_map'] = None          # To only load the map once
     if params['weather'] is not None:
@@ -116,13 +134,13 @@ def train(params, start_carla=True, restart=False):
     best_eval_reward = -float("inf")
 
     # Environment constants
-    input_shape = np.array([vae.z_dim + len(measurements_to_include)])
+    input_shape = np.array([vae.z_dim + len(measurements_to_include)]) # [69] for the PPO
     num_actions = env.action_space.shape[0]         # steer and throttle if PPO
 
-    # Create model
+    # Create model      # TODO: add support for PPO_CASCADE (import)
     if model_name.startswith('agent'): 
         print("Creating model")
-        model = PPO(input_shape, env.action_space,
+        model = PPO(input_shape, env.action_space, # input_shape + [300*4] masked with detection_scores
                     learning_rate=learning_rate, lr_decay=lr_decay,
                     epsilon=ppo_epsilon, initial_std=initial_std,
                     value_scale=value_scale, entropy_scale=entropy_scale,
@@ -152,6 +170,7 @@ def train(params, start_carla=True, restart=False):
         if not restart:
             model.load_latest_checkpoint()
         model.write_dict_to_summary("hyperparameters", params, 0)
+    object_detector.init_session()
 
     # For every episode
     train_data_path = os.path.join(subdirs_path, "train_data.csv")
@@ -208,18 +227,59 @@ def train(params, start_carla=True, restart=False):
             except AttributeError:
                 print("Episode {}".format(episode_idx))
             route, current_waypoint_index = None, None
+
+            plt.figure()
             while not terminal_state:
                 states, taken_actions, values, rewards, dones = [], [], [], [], []
                 for _ in range(horizon):               # number of steps to simulate per training step (128)
+                    # observation_input = np.random.rand(1,640,640,3).astype(np.uint8)  # dummy input               
+                    observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
+                    # print(observation_input[0][0])
+
                     if not model_name.startswith('agent'):
                         action, value = np.array([0, 0]), 0
                     else: 
                         action, value = model.predict(state, write_to_summary=True)
+
+                    detections = object_detector.detect(observation_input)      # TODO: Mask the detection boxes
+                    # dict_keys(['detection_anchor_indices', 'raw_detection_scores', 'raw_detection_boxes', 'detection_scores', 
+                    # 'detection_classes', 'detection_multiclass_scores', 'num_detections', 'detection_boxes'])
+
+                    # *achor_indices.shape: (1,300), raw_detection_scores.shape: (1,300,91), detection_scores: (1,300) *boxes.shape: (1,300,4), *detections.shape: (1,)
+                    # print(detections['detection_anchor_indices'].shape)
+                    # print(detections['raw_detection_scores'].shape)
+                    # print(detections['detection_boxes'].shape)
+                    # print(detections['num_detections'])
+
+                    # print('indices', detections['detection_anchor_indices'])        # anchor indices are to indicate which anchor was used for the correspoiding RPI (i.e. the center of the bounding box)
+                    # print('BBOX ', detections['detection_boxes'])                   # This is not global detection box
+                    # print('scroes', np.max(detections['detection_scores']))         # how many classes are active
+
+                    # print(detections['detection_boxes'][0][0])
+
+                    label_id_offset = 1
+                    image_np_with_detections = env.observation.copy()
+
+                    viz_utils.visualize_boxes_and_labels_on_image_array(
+                            image_np_with_detections,
+                            np.squeeze(detections['detection_boxes']),
+                            np.squeeze(detections['detection_classes']),#+label_id_offset,
+                            np.squeeze(detections['detection_scores']),
+                            category_index,
+                            use_normalized_coordinates=True,
+                            max_boxes_to_draw=200,
+                            min_score_thresh=.30,
+                            agnostic_mode=False)
+
+                    plt.imshow(image_np_with_detections)
+                    # plt.savefig('/home/mohanadodema/carla.png')
+
                     # Perform action
+                    # start = time.time()
                     new_state, reward, terminal_state, info, offloading_info = env.step(action)
+                    # print(time.time()-start)
                     if info["closed"] == True:
                         exit(0)
-
                     env.extra_info.extend([
                         "Episode {}".format(episode_idx),
                         # "Training...",
@@ -280,7 +340,6 @@ def train(params, start_carla=True, restart=False):
                     if terminal_state:
                         route = info["route"]
                         break
-
                 # Calculate last value (bootstrap value)
                 if model_name.startswith('agent'):
                     _, last_values = model.predict(state) # []
@@ -332,27 +391,29 @@ def train(params, start_carla=True, restart=False):
             completed_x = [x.transform.location.x for (x,_) in completed_route]
             completed_y = [x.transform.location.y for (x,_) in completed_route]
 
-            plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
-            plot_energy_stats(exp_latency, exp_energy, exp_tu, miss_flag, model.plot_dir, episode_idx, params)
+            if not params["no_save"]:
 
-            df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'ego_x': pd.Series(ego_x), 'ego_y': pd.Series(ego_y), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
-                                'miss_flag': pd.Series(miss_flag), 'probe_tu': pd.Series(probe_tu), 'exp_tu': pd.Series(exp_tu), 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action),
-                                'probe_latency': pd.Series(probe_latency), 'exp_latency': pd.Series(exp_latency), 'probe_energy': pd.Series(probe_energy), 'exp_energy': pd.Series(exp_energy)})
-            df.to_csv(model.plot_dir + '/train_' + str(episode_idx) + '.csv')
-            # Write episodic values
-            if video_recorder is not None:
-                video_recorder.release()
-            if (env.distance_traveled > 0.0):
-                data_row =  [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3),
-                            np.mean(exp_latency), np.mean(exp_energy), env.energy_monitor.missed_deadlines, env.energy_monitor.max_succ_interrupts, env.energy_monitor.missed_offloads, env.energy_monitor.misguided_energy]
-                if test:
-                    with open(valid_data_path, 'a', newline='') as fd:
-                        csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                        csv_writer.writerow(data_row)
-                else:
-                    with open(train_data_path, 'a', newline='') as fd:
-                        csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                        csv_writer.writerow(data_row)
+                plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
+                plot_energy_stats(exp_latency, exp_energy, exp_tu, miss_flag, model.plot_dir, episode_idx, params)
+
+                df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'ego_x': pd.Series(ego_x), 'ego_y': pd.Series(ego_y), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
+                                    'miss_flag': pd.Series(miss_flag), 'probe_tu': pd.Series(probe_tu), 'exp_tu': pd.Series(exp_tu), 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action),
+                                    'probe_latency': pd.Series(probe_latency), 'exp_latency': pd.Series(exp_latency), 'probe_energy': pd.Series(probe_energy), 'exp_energy': pd.Series(exp_energy)})
+                df.to_csv(model.plot_dir + '/train_' + str(episode_idx) + '.csv')
+                # Write episodic values
+                if video_recorder is not None:
+                    video_recorder.release()
+                if (env.distance_traveled > 0.0):
+                    data_row =  [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3),
+                                np.mean(exp_latency), np.mean(exp_energy), env.energy_monitor.missed_deadlines, env.energy_monitor.max_succ_interrupts, env.energy_monitor.missed_offloads, env.energy_monitor.misguided_energy]
+                    if test:
+                        with open(valid_data_path, 'a', newline='') as fd:
+                            csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                            csv_writer.writerow(data_row)
+                    else:
+                        with open(train_data_path, 'a', newline='') as fd:
+                            csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                            csv_writer.writerow(data_row)
             if model_name.startswith('agent'):
                 model.write_episodic_summaries()
             else:
@@ -402,7 +463,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'BasicAgent', 'BehaviorAgent'])
     parser.add_argument("--reward_fn", type=str,
                         default="reward_speed_centering_angle_multiply",
-                        help="Reward function to use. See reward_functions.py for more info.")
+                        help="Reward function to usfe. See reward_functions.py for more info.")
     parser.add_argument("--seed", type=int, default=0,
                         help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed " +
                              "with this option in our experience)")
@@ -444,7 +505,17 @@ if __name__ == "__main__":
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
 
+    # Additional Carla Offloading env options
+    parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
+    parser.add_argument("--len_obs", type=int, default=1, help="How many objects to be spawned given len_route is satisfied")
+    parser.add_argument("--obs_step", type=int, default=0, help="Objects distribution along the route after the first one")
+    parser.add_argument("--obs_start_idx", type=int, default=70, help="spawning index of first obstacle")
+    parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
+    parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
+
+
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+    # tf.get_logger().setLevel('ERROR')
 
     params = vars(parser.parse_args())
 
@@ -453,6 +524,7 @@ if __name__ == "__main__":
     restart = params["restart"]; del params["restart"]
 
     tf.compat.v1.reset_default_graph()
+    # exit()
 
     # Start training
     train(params, start_carla, restart)

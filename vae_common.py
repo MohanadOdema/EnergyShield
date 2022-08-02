@@ -3,6 +3,7 @@ import re
 import math
 from CarlaEnv.wrappers import vector
 from vae.models import ConvVAE, MlpVAE
+import cv2
 
 def load_vae(model_dir, z_dim=None, model_type=None):
     """
@@ -28,6 +29,7 @@ def load_vae(model_dir, z_dim=None, model_type=None):
     return vae
 
 def preprocess_frame(frame):
+    assert frame.shape[0] == 80 and frame.shape[1] == 160
     frame = frame.astype(np.float32) / 255.0
     return frame
 
@@ -47,7 +49,7 @@ def create_encode_state_fn(vae, measurements_to_include):
 
     def encode_state(env):
         # Encode image with VAE
-        frame = preprocess_frame(env.observation)
+        frame = preprocess_frame(env.observation_ds)
         encoded_state = vae.encode([frame])[0]
         
         # Append measurements
