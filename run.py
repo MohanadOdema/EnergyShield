@@ -1,3 +1,8 @@
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# The original working code with cascaded autoencoder, a standard object detector 
+# both providing inputs to the controller. All implementations are in tensorflow.
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 import os
 import random
 import time
@@ -18,7 +23,7 @@ from utils import VideoRecorder, compute_gae, plot_trajectories, plot_energy_sta
 from vae.models import ConvVAE, MlpVAE
 
 # Object Detection functionalities
-from detector import Detector
+from detector import Detector, mask_detection_boxes
 from object_detection.utils import visualization_utils as viz_utils
 from object_detection.utils import label_map_util
 from object_detection.utils import config_util
@@ -121,8 +126,11 @@ def train(params, start_carla=True, restart=False):
                    model_name=model_name,
                    params=params)
 
-    object_detector = Detector(input_shape=obs_res[::-1])#, model='FasterRCNN_ResNet152')            # needs proper input size and architecture choice as arguments
+    object_detector = Detector(input_shape=obs_res[::-1], model='FasterRCNN_ResNet152')
+    bbox_shape = np.array([10*4])  # detections output size from the object detector (originally 300*4 but we max 5*4 to keep small network size)
     category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)   
+
+    # print(category_index.items())
 
     if params['carla_map'] is not None: 
         params['carla_map'] = None          # To only load the map once
@@ -140,7 +148,15 @@ def train(params, start_carla=True, restart=False):
     # Create model      # TODO: add support for PPO_CASCADE (import)
     if model_name.startswith('agent'): 
         print("Creating model")
-        model = PPO(input_shape, env.action_space, # input_shape + [300*4] masked with detection_scores
+        model = PPO(input_shape, env.action_space, 
+                    learning_rate=learning_rate, lr_decay=lr_decay,
+                    epsilon=ppo_epsilon, initial_std=initial_std,
+                    value_scale=value_scale, entropy_scale=entropy_scale,
+                    model_dir=os.path.join("models", model_name), 
+                    subdirs=subdirs_path)
+    elif model_name.startswith('casc_agent'):
+        print("Creating cascaded model")
+        model = PPO_CASCADE(input_shape, bbox_shape, env.action_space,
                     learning_rate=learning_rate, lr_decay=lr_decay,
                     epsilon=ppo_epsilon, initial_std=initial_std,
                     value_scale=value_scale, entropy_scale=entropy_scale,
@@ -165,7 +181,7 @@ def train(params, start_carla=True, restart=False):
         shutil.rmtree(model.model_dir)
         for d in model.dirs:
             os.makedirs(d)
-    if model_name.startswith('agent'):
+    if model_name.startswith('agent') or model_name.startswith('casc_agent'):
         model.init_session()
         if not restart:
             model.load_latest_checkpoint()
@@ -189,6 +205,7 @@ def train(params, start_carla=True, restart=False):
             csv_writer.writerow(initial_row)
     while num_episodes <= 0 or model.get_episode_idx() < num_episodes:
         try:
+            start = time.time()
             episode_idx = model.get_episode_idx()
             # Run evaluation periodically
 
@@ -197,7 +214,7 @@ def train(params, start_carla=True, restart=False):
             else:
                 env_seed = episode_idx
             state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0
-            # print(state) # state is the 64-dim encoder output + 5 measurements to include
+            # state is the 64-dim encoder output + 5 measurements to include
             if record_eval:
                 rendered_frame = env.render(mode="rgb_array")
                 video_filename = os.path.join(model.video_dir, "episode{}.avi".format(episode_idx))
@@ -212,14 +229,16 @@ def train(params, start_carla=True, restart=False):
                 video_recorder = None
 
             path = '/home/mohanadodema/shielding_offloads/' + model.log_dir + str(episode_idx) + '_log.log'
-            print(path)
-            # exit(0)
-
-            env.client.start_recorder(path, True)   # need to generalize to PPO agents experiments
+            env.client.start_recorder(path, True)   
 
             # Reset environment
             ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none= [], [], [], [], [], [], [], [], [], [], [], [], []
             probe_tu, exp_tu, selected_action, correct_action, probe_latency, probe_energy, actual_latency, actual_energy, exp_latency, exp_energy, miss_flag = [], [], [], [], [], [], [], [], [], [], []
+
+            observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
+            detections = object_detector.detect(observation_input)      
+            masked_detections = mask_detection_boxes(detections, min_score_threshold=0.5)
+            masked_detections = masked_detections.flatten()[:10*4]
 
             # While episode not done
             try:
@@ -230,18 +249,10 @@ def train(params, start_carla=True, restart=False):
 
             plt.figure()
             while not terminal_state:
-                states, taken_actions, values, rewards, dones = [], [], [], [], []
+                states, input_boxes, taken_actions, values, rewards, dones = [], [], [], [], [], []
                 for _ in range(horizon):               # number of steps to simulate per training step (128)
-                    # observation_input = np.random.rand(1,640,640,3).astype(np.uint8)  # dummy input               
-                    observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
-                    # print(observation_input[0][0])
+                    # flatten for predict and train
 
-                    if not model_name.startswith('agent'):
-                        action, value = np.array([0, 0]), 0
-                    else: 
-                        action, value = model.predict(state, write_to_summary=True)
-
-                    detections = object_detector.detect(observation_input)      # TODO: Mask the detection boxes
                     # dict_keys(['detection_anchor_indices', 'raw_detection_scores', 'raw_detection_boxes', 'detection_scores', 
                     # 'detection_classes', 'detection_multiclass_scores', 'num_detections', 'detection_boxes'])
 
@@ -257,27 +268,33 @@ def train(params, start_carla=True, restart=False):
 
                     # print(detections['detection_boxes'][0][0])
 
-                    label_id_offset = 1
+                    if model_name.startswith('agent'):
+                        action, value = model.predict(state, write_to_summary=True)
+                    elif model_name.startswith('casc_agent'):
+                        action, value = model.predict(state, masked_detections, write_to_summary=True)
+                    else:
+                        action, value = np.array([0, 0]), 0
+
                     image_np_with_detections = env.observation.copy()
 
                     viz_utils.visualize_boxes_and_labels_on_image_array(
                             image_np_with_detections,
                             np.squeeze(detections['detection_boxes']),
-                            np.squeeze(detections['detection_classes']),#+label_id_offset,
+                            np.squeeze(detections['detection_classes']),
                             np.squeeze(detections['detection_scores']),
                             category_index,
                             use_normalized_coordinates=True,
                             max_boxes_to_draw=200,
-                            min_score_thresh=.30,
+                            min_score_thresh=.50,
                             agnostic_mode=False)
 
                     plt.imshow(image_np_with_detections)
+
+                    # TODO: Implement an if condition that saves an image every now and then when detecting an object
                     # plt.savefig('/home/mohanadodema/carla.png')
 
                     # Perform action
-                    # start = time.time()
                     new_state, reward, terminal_state, info, offloading_info = env.step(action)
-                    # print(time.time()-start)
                     if info["closed"] == True:
                         exit(0)
                     env.extra_info.extend([
@@ -286,7 +303,7 @@ def train(params, start_carla=True, restart=False):
                         # "",
                         "Value:  % 20.2f" % value
                     ])
-
+ 
                     if video_recorder is not None:
                         rendered_frame = env.render(mode="rgb_array")
                         video_recorder.add_frame(rendered_frame)
@@ -294,8 +311,15 @@ def train(params, start_carla=True, restart=False):
                         env.render()
                     total_reward += reward
 
-                    # For training the ppo (irrelevant)
+                    # new dashcam observation
+                    observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
+                    detections = object_detector.detect(observation_input)      
+                    new_masked_detections = mask_detection_boxes(detections, min_score_threshold=0.5)
+                    new_masked_detections = new_masked_detections.flatten()[:10*4]
+
+                    # For training the ppo 
                     states.append(state)         # [T, *input_shape]
+                    input_boxes.append(masked_detections)   # [T, 10*4]
                     taken_actions.append(action) # [T,  num_actions]
                     values.append(value)         # [T]
                     rewards.append(reward)       # [T]
@@ -319,6 +343,7 @@ def train(params, start_carla=True, restart=False):
                         obstacle_y.append(round(info["obstacle_y"], 3))
                     current_waypoint_index = info["current_waypoint_index"]
                     state = new_state
+                    masked_detections = new_masked_detections
 
                     # offloading measurements
                     probe_tu.append(round(offloading_info["probe_tu"], 3))
@@ -343,6 +368,8 @@ def train(params, start_carla=True, restart=False):
                 # Calculate last value (bootstrap value)
                 if model_name.startswith('agent'):
                     _, last_values = model.predict(state) # []
+                elif model_name.startswith('casc_agent'):
+                    _, last_values = model.predict(state, masked_detections)
                 else:
                     last_values = 1.0            # dummy values
                 
@@ -353,18 +380,20 @@ def train(params, start_carla=True, restart=False):
 
                 # Flatten arrays
                 states        = np.array(states)
+                input_boxes   = np.array(input_boxes)
                 taken_actions = np.array(taken_actions)
                 returns       = np.array(returns)
                 advantages    = np.array(advantages)
 
                 T = len(rewards)
                 assert states.shape == (T, *input_shape)
+                assert input_boxes.shape == (T, 10*4)
                 assert taken_actions.shape == (T, num_actions)
                 assert returns.shape == (T,)
                 assert advantages.shape == (T,)
 
                 # Train for some number of epochs
-                if (not test) and (model_name.startswith('agent')):
+                if (not test) and ((model_name.startswith('agent')) or model_name.startswith('casc_agent')):
                     model.update_old_policy() # θ_old <- θ
                 for _ in range(num_epochs):
                     num_samples = len(states)
@@ -383,8 +412,13 @@ def train(params, start_carla=True, restart=False):
                             #print("train")
                             model.train(states[mb_idx], taken_actions[mb_idx],
                                     returns[mb_idx], advantages[mb_idx])
+                        elif (not test) and (model_name.startswith('casc_agent')):
+                            model.train(states[mb_idx], input_boxes[mb_idx], taken_actions[mb_idx],
+                                    returns[mb_idx], advantages[mb_idx])
 
             env.client.stop_recorder()
+
+            print("Episode took {:.2f} seconds".format(time.time()-start))
 
             # The direct waypoints route coordinates for plotting reference 
             completed_route = route[:current_waypoint_index]
@@ -414,12 +448,12 @@ def train(params, start_carla=True, restart=False):
                         with open(train_data_path, 'a', newline='') as fd:
                             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                             csv_writer.writerow(data_row)
-            if model_name.startswith('agent'):
-                model.write_episodic_summaries()
+            if model_name.startswith('agent') or model_name.startswith('casc_agent'):
+                model.write_episodic_summaries()    #TODO: remove the write tensorflow events
             else:
                 model.inc_count()
 
-            if (not test) and (model_name.startswith('agent')):
+            if (not test) and ((model_name.startswith('agent')) or model_name.startswith('casc_agent')):
                 model.save()
 
         except KeyboardInterrupt:
@@ -460,7 +494,7 @@ if __name__ == "__main__":
     parser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
 
     # Training parameters
-    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'BasicAgent', 'BehaviorAgent'])
+    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent', 'BasicAgent', 'BehaviorAgent'])
     parser.add_argument("--reward_fn", type=str,
                         default="reward_speed_centering_angle_multiply",
                         help="Reward function to usfe. See reward_functions.py for more info.")
@@ -487,17 +521,17 @@ if __name__ == "__main__":
                         help="If True, delete existing model in models/model_name before starting training")
 
     # AV pipeline Offloading
-    parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet50')
-    parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', '0.5_direct', '0.25_direct', 'bottleneck'], default='direct')
+    parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'ResNet152', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet152')
+    parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', '0.5_direct', '0.25_direct', '0.11_direct', 'bottleneck'], default='direct')
     parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe'], default='offload')    
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
     parser.add_argument("--deadline", type=int, help="time window", default=100)
-    parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='720p')
+    parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['80p', '480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='80p')
     parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='LTE')
     parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
-    parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=13.62)    
+    parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=20)#13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
 
     # Carla Config file
@@ -509,7 +543,7 @@ if __name__ == "__main__":
     parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
     parser.add_argument("--len_obs", type=int, default=1, help="How many objects to be spawned given len_route is satisfied")
     parser.add_argument("--obs_step", type=int, default=0, help="Objects distribution along the route after the first one")
-    parser.add_argument("--obs_start_idx", type=int, default=70, help="spawning index of first obstacle")
+    parser.add_argument("--obs_start_idx", type=int, default=50, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
     parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
 

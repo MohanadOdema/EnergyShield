@@ -270,6 +270,43 @@ class ConvVAE(VAE):
             
         super().__init__(source_shape, target_shape, build_encoder, build_decoder, **kwargs)
 
+class ConvVAE_480(VAE):
+    """
+        Convolutional VAE class.
+        Achitecture from: https://github.com/hardmaru/WorldModelsExperiments/blob/master/carracing/vae/vae.py
+    """
+
+    def __init__(self, source_shape, target_shape=None, **kwargs):
+        """
+            Define the encoder and decoder for the convolutional VAE,
+            then initialize the base VAE.
+            
+            Note: This class is not general purpose with respect to source image shapes.
+            Tested and adjusted to work with 160x80x3.
+        """
+        target_shape = source_shape if target_shape is None else target_shape
+
+        def build_encoder(x):
+            x = tf.layers.conv2d(x, filters=32,  kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="conv1")
+            x = tf.layers.conv2d(x, filters=64,  kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="conv2")
+            x = tf.layers.conv2d(x, filters=128, kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="conv3")
+            x = tf.layers.conv2d(x, filters=256, kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="conv4")
+            self.encoded_shape = x.shape[1:]
+            x = tf.layers.flatten(x, name="flatten")
+            return x
+
+        def build_decoder(z):
+            x = tf.layers.dense(z, np.prod(self.encoded_shape), activation=None, name="dense1")
+            x = tf.reshape(x, (-1, *self.encoded_shape))
+            x = tf.layers.conv2d_transpose(x, filters=128, kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="deconv1")
+            x = tf.layers.conv2d_transpose(x, filters=64,  kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="deconv2")
+            x = tf.layers.conv2d_transpose(x, filters=32,  kernel_size=5, strides=2, activation=tf.nn.relu, padding="valid", name="deconv3")
+            x = tf.layers.conv2d_transpose(x, filters=target_shape[-1], kernel_size=4, strides=2, activation=None, padding="valid", name="deconv4")
+            assert x.shape[1:] == target_shape, f"{x.shape[1:]} != {target_shape}"
+            return x
+            
+        super().__init__(source_shape, target_shape, build_encoder, build_decoder, **kwargs)
+
 
 class MlpVAE(VAE):
     """

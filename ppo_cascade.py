@@ -10,6 +10,8 @@ import tensorflow_probability as tfp
 
 from utils import build_mlp, create_counter_variable, create_mean_metrics_from_dict
 
+# TODO Replace layers here to suppress warnings
+
 class PolicyGraph():
     """
         Manages the policy computation graph
@@ -17,7 +19,7 @@ class PolicyGraph():
 
     def __init__(self, input_states, input_detections, taken_actions, action_space, scope_name,
                  initial_std=0.4, initial_mean_factor=0.1,
-                 pi_hidden_sizes=(500, 300), vf_hidden_sizes=(500, 300), extract_hidden_sizes=(32,)):
+                 pi_hidden_sizes=(500, 300), vf_hidden_sizes=(500, 300), extract_hidden_sizes=(16,)):
         """
             input_states [batch_size, width, height, depth]:
                 Input images to predict actions for
@@ -40,16 +42,10 @@ class PolicyGraph():
         num_actions, action_min, action_max = action_space.shape[0], action_space.low, action_space.high
 
         with tf.variable_scope(scope_name):
-            # Detector Feature Extractor 
-            self.extractor = build_mlp(input_detections, hidden_sizes=extract_hidden_sizes, activation=tf.nn.relu, output_activation=tf.nn.relu)
-            # self.extractor = self.extractor[np.newaxis, self.extractor]
-            # DEBUG make sure the shape is correct
-            print(self.extractor.shape, input_states.shape)
-            exit()  
+            # Detector feature encoder 
+            extractor = build_mlp(input_detections, hidden_sizes=extract_hidden_sizes, activation=tf.nn.relu, output_activation=tf.nn.relu)
             # Concatenate with inputs for the policy network
-            concat_input_states = tf.concatenate([input_states, self.extractor], -1)
-            print(self.concat_input_states.shape) # should be (None, 133)
-            exit()
+            concat_input_states = tf.concat([input_states, extractor], -1)
             # Policy branch π(a_t | s_t; θ)
             self.pi = build_mlp(concat_input_states, hidden_sizes=pi_hidden_sizes, activation=tf.nn.relu, output_activation=tf.nn.relu)
             self.action_mean = tf.layers.dense(self.pi, num_actions,
@@ -89,7 +85,7 @@ class PPO_CASCADE():
         """
             input_state_shape [3]:
                 Shape of input images as a tuple (width, height, depth)
-            input_detections_shape flat([300*4])
+            input_detections_shape flat([max_no_of_detectors*4])
                 bbox coordinates for detected objects masked with detection scores
             action_space (gym.spaces.Box):
                 Continous action space of our agent
@@ -215,7 +211,7 @@ class PPO_CASCADE():
             self.sess = sess
 
         if init_logging:
-            self.train_writer = tf.summary.FileWriter(self.log_dir, self.sess.graph)
+            self.train_writer = tf.summary.FileWriter(self.log_dir, self.sess.graph) # check events size
         
     def save(self):
         model_checkpoint = os.path.join(self.checkpoint_dir, "model.ckpt")
@@ -250,11 +246,12 @@ class PPO_CASCADE():
     def predict(self, input_states, input_detections, greedy=False, write_to_summary=False):
         # Extend input axis 0 if no batch dim
         input_states = np.asarray(input_states)
+        input_detections = np.asarray(input_detections)
         if len(input_states.shape) != 2:
             input_states = [input_states]               
-        if input_detections.shape != (1, 1200):
-            raise ValueError("Shape of {} not correct for detections!".format(input_detections.shape))
-            
+        if len(input_detections.shape) != 2:
+            input_detections = [input_detections]
+
         # Predict action
         action = self.policy.action_mean if greedy else self.policy.sampled_action
         sampled_action, value, summaries, step_idx = \

@@ -11,6 +11,7 @@ from planner import RoadOption, compute_route_waypoints
 
 from hud import HUD
 from wrappers import *
+import cv2
 
 
 class CarlaDataCollector:
@@ -29,7 +30,7 @@ class CarlaDataCollector:
                  viewer_res=(1280, 720), obs_res=(1280, 720),
                  num_images_to_save=10000, output_dir="images",
                  synchronous=True, fps=30, action_smoothing=0.9,
-                 start_carla=False):
+                 start_carla=False, observation_num=0):
         """
             Initializes an environment that can be used to save camera/sensor data
             from driving around manually in CARLA.
@@ -64,6 +65,8 @@ class CarlaDataCollector:
                 Automatically start CALRA when True. Note that you need to
                 set the environment variable ${CARLA_ROOT} to point to
                 the CARLA root directory for this option to work.
+            observation (num):
+                the observation number at which frames are saved
         """
 
         # Start CARLA from CARLA_ROOT
@@ -115,11 +118,13 @@ class CarlaDataCollector:
         self.done = False
         self.recording = False
         self.extra_info = []
-        self.num_saved_observations = 0
+        self.num_saved_observations = observation_num
         self.num_images_to_save = num_images_to_save
         self.observation = {key: None for key in ["rgb", "segmentation"]}        # Last received observations
         self.observation_buffer = {key: None for key in ["rgb", "segmentation"]}
         self.viewer_image = self.viewer_image_buffer = None                   # Last received image to show in the viewer
+
+        assert self.num_images_to_save > self.num_saved_observations
 
         self.output_dir = output_dir
         os.makedirs(os.path.join(self.output_dir, "rgb"))
@@ -130,6 +135,10 @@ class CarlaDataCollector:
             # Connect to carla
             self.client = carla.Client(host, port)
             self.client.set_timeout(2.0)
+
+            # reload the map
+            world = self.client.load_world('Town04')
+            world.set_weather(getattr(carla.WeatherParameters, 'WetCloudySunset'))
 
             # Create world wrapper
             self.world = World(self.client)
@@ -145,7 +154,7 @@ class CarlaDataCollector:
             print("Start x", self.world.map.get_spawn_points()[46].location.x)
             print("Start y", self.world.map.get_spawn_points()[46].location.y)
             lap_start_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[46].location)
-            lap_end_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[232].location)
+            lap_end_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[205].location)   # 232
             print("before computing route")
             self.route_waypoints = compute_route_waypoints(self.world.map, lap_start_wp, lap_end_wp, resolution=1.0,
                                                            plan=[
@@ -201,6 +210,13 @@ class CarlaDataCollector:
 
         self.hud.notification("Press \"Enter\" to start collecting data.")
 
+    def downsample(self):
+        if (not self.observation['rgb'].shape[0] <= 80) and (not self.observation['rgb'].shape[1] <= 160):
+            frame = cv2.resize(self.observation['rgb'], dsize=(160,80))   # downsample for pretrained encoder (i believe columns and row are flipped in cv2)
+        else:
+            frame = self.observation['rgb']
+        return frame
+
     def close(self):
         if self.carla_process:
             self.carla_process.terminate()
@@ -215,6 +231,7 @@ class CarlaDataCollector:
 
         # Superimpose current observation into top-right corner
         for i, (_, obs) in enumerate(self.observation.items()):
+            obs = self.downsample()
             obs_h, obs_w = obs.shape[:2]
             view_h, view_w = self.viewer_image.shape[:2]
             pos = (view_w - obs_w - 10, obs_h * i + 10 * (i+1))
@@ -253,11 +270,13 @@ class CarlaDataCollector:
             #self.vehicle.control.brake = self.vehicle.control.brake * self.action_smoothing + brake * (1.0-self.action_smoothing)
         
         # Tick game
-        self.clock.tick()
         self.hud.tick(self.world, self.clock)
         self.world.tick()
+        self.clock.tick()
+        # self.world.tick()
         try:
-            self.world.wait_for_tick(seconds=0.5)
+            pass
+            # self.world.wait_for_tick(seconds=0.5)
         except RuntimeError as e:
             pass # Timeouts happen for some reason, however, they are fine to ignore
 
@@ -270,8 +289,10 @@ class CarlaDataCollector:
         keys = pygame.key.get_pressed()
         if keys[K_ESCAPE]:
             self.done = True
-        if keys[K_SPACE]:
+        if keys[K_SPACE] and (self.recording is False):
             self.recording = True
+        elif keys[K_SPACE] and (self.recording is True):
+            self.recording = False
 
     def is_done(self):
         return self.done
@@ -311,12 +332,13 @@ if __name__ == "__main__":
     argparser.add_argument("--host", default="127.0.0.1", type=str, help="IP of the host server (default: 127.0.0.1)")
     argparser.add_argument("--port", default=2000, type=int, help="TCP port to listen to (default: 2000)")
     argparser.add_argument("--viewer_res", default="1280x720", type=str, help="Window resolution (default: 1280x720)")
-    argparser.add_argument("--obs_res", default="160x80", type=str, help="Output resolution (default: same as --res)")
+    argparser.add_argument("--obs_res", default="848x480", type=str, help="Output resolution (default: same as --res)")
     argparser.add_argument("--output_dir", default="images", type=str, help="Directory to save images to")
     argparser.add_argument("--num_images", default=10000, type=int, help="Number of images to collect")
     argparser.add_argument("--fps", default=30, type=int, help="FPS. Delta time between samples is 1/FPS")
     argparser.add_argument("--synchronous", type=int, default=True, help="Set this to True when running in a synchronous environment")
     argparser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
+    argparser.add_argument("--observation_num", type=int, default=0, help="Observation number to start saving at")
     args = argparser.parse_args()
 
     # Remove existing output directory
@@ -335,7 +357,7 @@ if __name__ == "__main__":
     data_collector = CarlaDataCollector(host=args.host, port=args.port,
                                         viewer_res=viewer_res, obs_res=obs_res, fps=args.fps,
                                         num_images_to_save=args.num_images, output_dir=args.output_dir,
-                                        synchronous=args.synchronous, start_carla=args.start_carla)
+                                        synchronous=args.synchronous, start_carla=args.start_carla, observation_num=args.observation_num)
     action = np.zeros(data_collector.action_space.shape[0])
 
     # While there are more images to collect

@@ -15,6 +15,19 @@ tf.compat.v1.disable_eager_execution()
 hub_dict = {'FasterRCNN_ResNet152': "https://tfhub.dev/tensorflow/faster_rcnn/resnet152_v1_640x640/1",
             'FasterRCNN_ResNet50': "https://tfhub.dev/tensorflow/faster_rcnn/resnet50_v1_640x640/1"}
 
+def mask_detection_boxes(detections, min_score_threshold=0.5):
+    scores = np.squeeze(detections['detection_scores'])
+    boxes = np.squeeze(detections['detection_boxes'])
+    masked_detections = []
+    for i in range(boxes.shape[0]):
+        if scores[i] > min_score_threshold:
+            masked_detections.append(boxes[i])
+        else:
+            masked_detections.append(np.zeros(4))      # ymin, xmin, ymax, xmax
+    masked_detections = np.asarray(masked_detections, dtype=np.float32)
+    assert masked_detections.shape == boxes.shape
+    return masked_detections
+
 class Detector2():         # with eager_execution for tensorflow debugging purposes
   def __init__(self, input_size=(1,640,640,3), model='FasterRCNN_ResNet50'):
       self.image_tensor = np.random.rand(1,80,160,3).astype(np.uint8)

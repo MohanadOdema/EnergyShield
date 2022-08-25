@@ -165,7 +165,7 @@ class CarlaOffloadEnv(gym.Env):
             self.vehicle = Vehicle(self.world, spawn_transform,
                                    on_collision_fn=lambda e: self._on_collision(e),
                                    on_invasion_fn=lambda e: self._on_invasion(e))
-
+            
             if self.model_name == 'BasicAgent':
                 self.agent = BasicAgent(self.vehicle, target_speed=40)
             elif self.model_name == 'BehaviorAgent':
@@ -262,7 +262,9 @@ class CarlaOffloadEnv(gym.Env):
         if self.agent is not None:
             self.agent.set_destination(self.destination)
 
-        # print(len(self.route_waypoints))
+        # if len(self.world.actor_list) > 6:
+        #     print(self.world.actor_list[5].type_id)
+        #     exit()
 
         # Creating obstacles
         if self.obstacle_en:
@@ -272,8 +274,8 @@ class CarlaOffloadEnv(gym.Env):
                 if self.track == 1:
                     spawn_idx = random.randint(self.obs_start_idx-10, self.obs_start_idx+10)
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
-                spawn_transform.rotation = carla.Rotation(yaw=spawn_transform.rotation.yaw-180)
-                if not self.model_name.startswith('agent'):
+                spawn_transform.rotation = carla.Rotation(yaw=spawn_transform.rotation.yaw-270)                 # 180 for pedestrians; 270 for prop gonme
+                if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')):
                     # displace object out of the center of the lane 
                     spawn_transform.location.x = spawn_transform.location.x + 1.2
                 if (not is_training) and gaussian:
@@ -298,8 +300,8 @@ class CarlaOffloadEnv(gym.Env):
                             if (spawn_idx + current_idx)  >= len(self.route_waypoints):
                                 continue
                             spawn_transform = self.route_waypoints[current_idx + spawn_idx][0].transform
-                            spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
-                            if not self.model_name.startswith('agent'):
+                            spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-270)
+                            if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')):
                                 # displace object out of the center of the lane 
                                 spawn_transform.location.x = spawn_transform.location.x + 1.2
                             if (not is_training) and gaussian:
@@ -318,8 +320,8 @@ class CarlaOffloadEnv(gym.Env):
                         break
                     # The next spawning position in the loop
                     spawn_transform = self.route_waypoints[spawn_idx + current_idx][0].transform
-                    spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-180)
-                    if not self.model_name.startswith('agent'):
+                    spawn_transform.rotation = carla.Rotation(yaw= spawn_transform.rotation.yaw-270)
+                    if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')):
                         # displace object out of the center of the lane 
                         spawn_transform.location.x = spawn_transform.location.x + 1.2
                     # add some randomization
@@ -330,20 +332,13 @@ class CarlaOffloadEnv(gym.Env):
                 print("len obstacles", len(self.obstacles))
                 self.obstacle_counter = 0
 
-        # if self.synchronous:
-        #     ticks = 0
-        #     while ticks < self.fps * 2:
-
-        #         self.world.tick()
-        #         # exit(0)
-        #         try:
-        #             self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
-        #             print('You cannot reach here if synchronous!')
-        #         except:
-        #             pass
-        #         ticks += 1 
-        # else:
-        #     time.sleep(2.0)
+        if self.synchronous:
+            ticks = 0
+            while ticks < self.fps * 2:
+                self.world.tick()
+                ticks += 1 
+        else:
+            time.sleep(2.0)
 
         self.terminal_state = False # Set to True when we want to end episode
         self.track_completed   = False
@@ -491,13 +486,10 @@ class CarlaOffloadEnv(gym.Env):
             self.close()
         self.energy_monitor.determine_offloading_decision(self.probe_tu, self.delta_tu)      
        
-        if not self.model_name.startswith('agent') and action is not None:
+        if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')) and action is not None:
             control = self.agent.run_step()
             steer = control.steer
             throttle = control.throttle
-            # print(steer, type(steer), throttle, type(throttle))
-            # exit(0)
-            # print(control)
 
             self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
             self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
@@ -548,7 +540,7 @@ class CarlaOffloadEnv(gym.Env):
         if self.synchronous:
             self.clock.tick()
             while True:
-                self.world.tick()
+                self.world.tick()           # Based on carla documentation and previous SHieldNN implementation, the server FPS has to be twice as much as the client FPS, and hence why we do 2 world ticks per one clock tick.
                 break
                 
         # Get most recent observation and viewer image

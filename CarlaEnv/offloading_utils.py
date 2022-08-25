@@ -16,7 +16,7 @@ full_local_latency = {"Radiate": {"PX2": {"ResNet18": 18.41, "ResNet50": 41.24, 
                                 "Orin": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
                                 "Xavier": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
                                 "Nano": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None}},
-                        "480p": {"PX2": {"ResNet18": 29.35, "ResNet50": 67.26, "DenseNet169": 143.52, "ViT": None, "ResNet18_mimic": 20, "ResNet50_mimic": 45.88, "DenseNet169_mimic": 73.49},
+                        "480p": {"PX2": {"ResNet18": 29.35, "ResNet50": 67.26, "DenseNet169": 143.52, "ViT": None, "ResNet18_mimic": 20, "ResNet50_mimic": 45.88, "DenseNet169_mimic": 73.49, "ResNet50FasterRCNN": 67.26, "ResNet50FasterRCNN_mimic": None},
                                 "TX2": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
                                 "Orin": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
                                 "Xavier": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
@@ -30,7 +30,8 @@ full_local_latency = {"Radiate": {"PX2": {"ResNet18": 18.41, "ResNet50": 41.24, 
                                 "TX2": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
                                 "Orin": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
                                 "Xavier": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None},
-                                "Nano": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None}}
+                                "Nano": {"ResNet18": None, "ResNet50": None, "DenseNet169": None, "ViT": None, "ResNet18_mimic": None, "ResNet50_mimic": None, "DenseNet169_mimic": None}},
+                        "80p"  : {"PX2": {"ResNet50": 6.16, "ResNet152": 16.211}}
                         }
 
 # Measurements on the PX2 are obtained for the network only, 1-3 mseconds can be added for the initial preprocessing
@@ -217,6 +218,8 @@ class OffloadingManager():
             upload_latency = self.estimate_comm_latency(self.input_size*0.5, tu)
         elif self.offload_position == '0.25_direct':
             upload_latency = self.estimate_comm_latency(self.input_size*0.25, tu)
+        elif self.offload_position == '0.11_direct':    # l/3 and w/3
+            upload_latency = self.estimate_comm_latency(self.input_size*0.11, tu)
         elif self.offload_position == 'bottleneck':
             upload_latency = self.estimate_comm_latency(self.bottleneck_size, tu)
         else:
@@ -224,7 +227,9 @@ class OffloadingManager():
         return upload_latency
 
     def compute_input_size(self):                       # Two aspect ratios are applicable -> Classic: 4:3 and Widescreen: 16:9
-        if self.img_resolution == '480p':
+        if self.img_resolution == '80p':
+            return (160*80*3)*8 /(1024**2)
+        elif self.img_resolution == '480p':
             return (852*480*3)*8 / (1024**2)            # (w*l*ch)*bits in Mbits
         elif self.img_resolution == '720p':
             return (1280*720*3)*8  / (1024**2) 
@@ -241,10 +246,12 @@ class OffloadingManager():
         # elif self.img_resolution == '360p':
         #     return (640*360*3)*8 / (1024**2)  
         else:
-            raise ValueError("Resolution not supported!")
+            raise ValueError("Resolution {} not supported!".format(self.img_resolution))
 
     def compute_bottleneck_size(self):                  # Currently assuming all share the same encoder structure we had before
-        if self.img_resolution == '480p':
+        if self.img_resolution == '80p':
+            return ((160/8)*(80/8)*self.bottleneck_ch) * self.bottleneck_quant /(1024**2)
+        elif self.img_resolution == '480p':
             return ((852/8)*(480/8)*self.bottleneck_ch) * self.bottleneck_quant / (1024**2)            # (w*l*ch)*bits in Mbits
         elif self.img_resolution == '720p':
             return ((1280/8)*(720/8)*self.bottleneck_ch) * self.bottleneck_quant  / (1024**2)         
@@ -289,6 +296,7 @@ class OffloadingManager():
         return total_latency, total_energy
 
 class UploadThroughputSampler():
+    # TODO: Make into rayleighs and queuing delays
     def __init__(self, params):
         self.rayleigh_sigma = params["rayleigh_sigma"]
         self.noise_scale = params["noise_scale"]

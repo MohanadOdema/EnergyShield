@@ -190,10 +190,12 @@ class Camera(CarlaActorBase):
 # Vehicle
 #===============================================================================
 class Obstacle(CarlaActorBase):
-    def __init__(self, world, transform=carla.Transform(), obstacle_type="*walker*"):
+    def __init__(self, world, transform=carla.Transform(), obstacle_type="*static*"): # return to "*walker*" or "*static*"
         self.obstacle_transform = None
         self._set_obstacle_transform(transform)
-        obstacle_bp = world.get_blueprint_library().filter(obstacle_type)[0]
+        obstacle_bp = world.get_blueprint_library().filter(obstacle_type)[18]#[int(np.random.choice(np.arange(20)))]   #18
+        if obstacle_bp.has_attribute('is_invincible'):
+            obstacle_bp.set_attribute('is_invincible', 'false')
         self.obstacle = world.try_spawn_actor(obstacle_bp, self.obstacle_transform)
         super().__init__(world, self.obstacle)
 
@@ -204,7 +206,7 @@ class Obstacle(CarlaActorBase):
         player_location = player_transform.location
         player_yaw = player_transform.rotation.yaw * math.pi / 180
         x_offset = random.uniform(15,16)
-        y_offset = 0#random.uniform(-5, 5)
+        y_offset = 0 #random.uniform(-5, 5)
         #print('x_offset', x_offset, 'y_offset', y_offset)
         obstacle_location = carla.Location(
             x=player_location.x + (x_offset * math.cos(player_yaw)) + (y_offset * math.sin(player_yaw)),

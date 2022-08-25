@@ -17,8 +17,8 @@ parser = argparse.ArgumentParser(description="Visualizes the features learned by
 parser.add_argument("--model_dir", type=str, required=True)
 parser.add_argument("--model_type", type=str, default="cnn")
 parser.add_argument("--z_dim", type=int, default=64)
-parser.add_argument("--source_shape", type=str, default="160x80x3")
-parser.add_argument("--target_shape", type=str, default="160x80x3",
+parser.add_argument("--source_shape", type=str, default="848x480x3")
+parser.add_argument("--target_shape", type=str, default="848x480x3",
                     help="Remember to set this one to 160x80x1 if model was trained on segmentation maps")
 args = parser.parse_args()
 
