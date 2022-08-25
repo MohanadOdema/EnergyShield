@@ -1,3 +1,5 @@
-07/11 - Planning which combinations to for the deadline sweeps
-
-
+Training the casc_agent2 on medium route with 4 obstacles for infinite number of episodes. Using the additive reward. distance_to_obstacle included in the reward.
+Something is wrong with the objects spawning
+----------------------------------------------------------
+08/25 -- 9:52 am
+Training the casc_agent1 on medium route with 4 obstacles for infinite number of episodes. Using the multiplicative reward. No distance_to_obstacle or steering angle_difference in the reward (30 episodes).

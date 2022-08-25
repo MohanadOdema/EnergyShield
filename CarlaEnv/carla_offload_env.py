@@ -708,6 +708,9 @@ class CarlaOffloadEnv(gym.Env):
         if "Pedestrian" in obstacle_name:
             print("Hit a pedestrian!")
             self.obstacle_hit = True
+        elif "Prop" in obstacle_name:
+            print("Hit a Prop Gnome!")
+            self.obstacle_hit = True
         elif "Fence" in obstacle_name:
             print("Hit a curb")
             self.curb_hit = True

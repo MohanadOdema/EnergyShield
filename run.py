@@ -494,7 +494,7 @@ if __name__ == "__main__":
     parser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
 
     # Training parameters
-    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent', 'BasicAgent', 'BehaviorAgent'])
+    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'BasicAgent', 'BehaviorAgent'])
     parser.add_argument("--reward_fn", type=str,
                         default="reward_speed_centering_angle_multiply",
                         help="Reward function to usfe. See reward_functions.py for more info.")
