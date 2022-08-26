@@ -633,7 +633,7 @@ class CarlaOffloadEnv(gym.Env):
         self.step_count += 1
 
         # Check for ESC press
-        if self.display is not None
+        if self.display is not None:
             pygame.event.pump()
             if pygame.key.get_pressed()[K_ESCAPE]:
                 self.close()
