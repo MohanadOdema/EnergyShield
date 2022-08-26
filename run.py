@@ -495,7 +495,7 @@ if __name__ == "__main__":
     parser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
 
     # Training parameters
-    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name", choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'BasicAgent', 'BehaviorAgent'])
+    parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name") #choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'casc_agent4', 'BasicAgent', 'BehaviorAgent'])
     parser.add_argument("--reward_fn", type=str,
                         default="reward_speed_centering_angle_multiply",
                         help="Reward function to usfe. See reward_functions.py for more info.")
@@ -540,6 +540,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
     parser.add_argument("-display_off", action='store_true', help='Turn off display running experiments on the server')
+    parser.add_argument("--port", type=int, default=2000, help='set the port for communicating with the host in case of server operation')
 
     # Additional Carla Offloading env options
     parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
@@ -548,7 +549,6 @@ if __name__ == "__main__":
     parser.add_argument("--obs_start_idx", type=int, default=50, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
     parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
-
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
     # tf.get_logger().setLevel('ERROR')
