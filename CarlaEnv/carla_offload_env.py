@@ -109,7 +109,7 @@ class CarlaOffloadEnv(gym.Env):
         try:
             # Connect to carla
             self.client = carla.Client(host, port)
-            self.client.set_timeout(2)
+            self.client.set_timeout(10)
 
             # reload the map
             if params['carla_map'] is not None:
@@ -633,10 +633,11 @@ class CarlaOffloadEnv(gym.Env):
         self.step_count += 1
 
         # Check for ESC press
-        pygame.event.pump()
-        if pygame.key.get_pressed()[K_ESCAPE]:
-            self.close()
-            self.terminal_state = True
+        if self.display is not None
+            pygame.event.pump()
+            if pygame.key.get_pressed()[K_ESCAPE]:
+                self.close()
+                self.terminal_state = True
 
         env_dict = rounded_dict({"closed": self.closed, "ego_x": ego_x, "ego_y": ego_y, "obstacle_x": obstacle_x, "obstacle_y":obstacle_y, 
                         "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, 
