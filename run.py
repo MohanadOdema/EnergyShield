@@ -215,7 +215,7 @@ def train(params, start_carla=True, restart=False):
                 env_seed = episode_idx
             state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0
             # state is the 64-dim encoder output + 5 measurements to include
-            if record_eval:
+            if record_eval and env.display is not None:
                 rendered_frame = env.render(mode="rgb_array")
                 video_filename = os.path.join(model.video_dir, "episode{}.avi".format(episode_idx))
                 # Init video recording
@@ -304,11 +304,12 @@ def train(params, start_carla=True, restart=False):
                         "Value:  % 20.2f" % value
                     ])
  
-                    if video_recorder is not None:
-                        rendered_frame = env.render(mode="rgb_array")
-                        video_recorder.add_frame(rendered_frame)
-                    else:
-                        env.render()
+                    if env.display is not None:
+                        if video_recorder is not None:
+                            rendered_frame = env.render(mode="rgb_array")
+                            video_recorder.add_frame(rendered_frame)
+                        else:
+                            env.render()
                     total_reward += reward
 
                     # new dashcam observation
@@ -538,6 +539,7 @@ if __name__ == "__main__":
     parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
+    parser.add_argument("-display_off", action='store_true', help='Turn off display running experiments on the server')
 
     # Additional Carla Offloading env options
     parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")

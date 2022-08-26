@@ -69,9 +69,11 @@ class CarlaOffloadEnv(gym.Env):
         self.len_obs                = params["len_obs"]
         self.obs_step               = params["obs_step"]
         self.obs_start_idx          = params["obs_start_idx"]
+        self.display_off            = params["display_off"]
         self.agent                  = None
         self.model_name             = model_name
         self._queues                = []
+        self.display                = None
 
         self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)
@@ -87,7 +89,8 @@ class CarlaOffloadEnv(gym.Env):
             out_width, out_height = width, height
         else:
             out_width, out_height = obs_res     # OD: set to (160,80) default from the calling function
-        self.display = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
+        if not self.display_off:
+            self.display = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.clock = pygame.time.Clock()
         self.synchronous = synchronous
 
@@ -768,6 +771,7 @@ if __name__ == "__main__":
             obs, _, done, info = env.step(action)
             if info["closed"]: # Check if closed
                 exit(0)
-            env.render() # Render
+            if not self.display_off:
+                env.render() # Render
             if done: break
     env.close()
