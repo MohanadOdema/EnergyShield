@@ -555,12 +555,14 @@ if __name__ == "__main__":
 
     params = vars(parser.parse_args())
 
+    if params["display_off"]:
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+
     # Remove a couple of parameters that we dont want to log
     start_carla = params["start_carla"]; del params["start_carla"]
     restart = params["restart"]; del params["restart"]
 
     tf.compat.v1.reset_default_graph()
-    # exit()
 
     # Start training
     train(params, start_carla, restart)
