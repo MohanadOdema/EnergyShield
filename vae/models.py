@@ -5,6 +5,12 @@ import tensorflow.compat.v1 as tf
 import tensorflow_probability as tfp
 import os
 
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
 
 def kl_divergence(mean, logstd_sq, name="kl_divergence"):
     with tf.variable_scope(name):

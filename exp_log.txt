@@ -1,5 +1,27 @@
+----------------------------------------------------------
+08/26 -- 16:30 -- I need to run scripts 2-4
+
+Local (multiplicative reward)
+python run.py --model_name casc_agent1 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 0 --deadline 100 --len_obs 4 --len_route medium --observation_res 80 -penalize_dist_obstacle
+
+On ResilientCPS remote server
+
+Training Docker 1 (port 2000) gpu0 -- (multiplicative (5 obs))
+python run.py --model_name casc_agent1 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 6000 --deadline 100 --len_obs 5 --len_route medium --observation_res 80 -penalize_dist_obstacle --no_rendering -display_off
+
+Training Docker 2 (port 3000) gpu1 -- (multiplicative (no penalize_dist_obstacle))
+python run.py --model_name casc_agent2 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 6000 --deadline 100 --len_obs 5 --len_route medium --observation_res 80 --no_rendering -display_off --port 3000
+
+Training Docker 3 (port 4000) gpu3 -- (additive reward (penalize))
+python run.py --model_name casc_agent3 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 6000 --deadline 100 --len_obs 4 --len_route medium --observation_res 80 -penalize_dist_obstacle --no_rendering -display_off
+--reward_fn reward_speed_centering_angle_add --port 4000
+
+Training Docker 4 (port 5000) gpu4 -- (multiplicative reward (penalize and long) 5 obs)
+python run.py --model_name casc_agent4 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 6000 --deadline 100 --len_obs 5 --len_route long --observation_res 80 -penalize_dist_obstacle --no_rendering -display_off --port 5000
+----------------------------------------------------------
 Training the casc_agent2 on medium route with 4 obstacles for infinite number of episodes. Using the additive reward. distance_to_obstacle included in the reward.
 Something is wrong with the objects spawning
 ----------------------------------------------------------
 08/25 -- 9:52 am
 Training the casc_agent1 on medium route with 4 obstacles for infinite number of episodes. Using the multiplicative reward. No distance_to_obstacle or steering angle_difference in the reward (30 episodes).
+
