@@ -74,6 +74,7 @@ class CarlaOffloadEnv(gym.Env):
         self.model_name             = model_name
         self._queues                = []
         self.display                = None
+        self.throughputs            = []
 
         self.energy_monitor = OffloadingManager(params)
         self.throughput_prober = UploadThroughputSampler(params)

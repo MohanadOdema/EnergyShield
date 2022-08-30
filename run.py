@@ -534,6 +534,7 @@ if __name__ == "__main__":
     parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=20)#13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
+    parser.add_argument("--avg_window", type=int, default=5, help="moving average window size")
 
     # Carla Config file
     parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
