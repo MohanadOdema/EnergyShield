@@ -524,7 +524,7 @@ if __name__ == "__main__":
     # AV pipeline Offloading
     parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'ResNet152', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet152')
     parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', '0.5_direct', '0.25_direct', '0.11_direct', 'bottleneck'], default='direct')
-    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe'], default='offload')    
+    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'strictShield', 'energyShield', 'looseShield'], default='offload')    
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
@@ -533,8 +533,20 @@ if __name__ == "__main__":
     parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='LTE')
     parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=20)#13.62)    
-    parser.add_argument("--noise_scale", type=float, default=5, help="noise scale/variance")
-    parser.add_argument("--avg_window", type=int, default=5, help="moving average window size")
+    parser.add_argument("--noise_scale", type=float, default=5, help="gaussian noise scale/variance")
+
+    # Netowrk Sampling and Estimation Parameters
+    parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
+    parser.add_argument("--estimation_fn", type=str, default='avg', help="vehicle estimation function of the network conditions")
+    parser.add_argument("--phi_scale", type=float, default=20, help="scale parameter for the channel capacity pdf")
+    parser.add_argument("--phi_shift", type=float, default=0, help="shift parameter for the channel capacity pdf")
+    parser.add_argument("--rtt_dist", type=str, default='gamma', help="use gamma or rayleigh pdf for rtt", choices=['rayleigh', 'gamma'])
+    parser.add_argument("--rtt_shape", type=float, default=3.5, help="shape parameter for RTT pdf")
+    parser.add_argument("--rtt_scale", type=float, default=5.5, help="scale parameter for RTT pdf")
+    parser.add_argument("--rtt_shift", type=float, default=10, help="shift from zero for RTT pdf")
+    parser.add_argument("--qsize", type=int, default=4000 , help='queue size at the server')
+    parser.add_argument("--arate", type=int, default=970 , help='arrival rate for queue size pdf')
+    parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')
 
     # Carla Config file
     parser.add_argument("--carla_map", type=str, default='Town04', help="load map")

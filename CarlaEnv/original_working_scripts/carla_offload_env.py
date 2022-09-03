@@ -22,8 +22,7 @@ import cv2
 import math
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-fn_dict = {'avg': lambda x: average(x),
-            'worst': lambda x, y: worst(x, y)} 
+
 
 class CarlaOffloadEnv(gym.Env):
     """
@@ -72,23 +71,15 @@ class CarlaOffloadEnv(gym.Env):
         self.obs_step               = params["obs_step"]
         self.obs_start_idx          = params["obs_start_idx"]
         self.display_off            = params["display_off"]
-        self.buffer_size            = params["buffer_size"]
+        self.tu_window              = params["tu_window"]
         self.agent                  = None
         self.model_name             = model_name
         # self._queues                = []
         self.display                = None
-        self.phi_list               = deque()
-        self.rtt_list               = deque()
-        self.que_list               = deque()
-        self.estimation_fn          = params["estimation_fn"]
+        self.throughputs            = deque()
 
         self.energy_monitor = OffloadingManager(params)
-        self.phi_sampler = RayleighSampler(params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
-        if params['rtt_dist'] == 'gamma':
-            self.rtt_sampler = ShiftedGammaSampler(params['rtt_shape'], params['rtt_scale'], params['rtt_shift']) # samples rtt (ms)
-        elif params['rtt_dist'] == 'rayleigh':
-            self.rtt_sampler = RayleighSampler(params['rtt_scale'], params['rtt_shift'])
-        self.que_sampler = NetworkQueueModel(params['qsize'], params['arate'], params['srate'])
+        self.throughput_prober = UploadThroughputSampler(params)
 
         if apply_filter:
             self.safety_filter = SafetyFilter()
@@ -251,9 +242,8 @@ class CarlaOffloadEnv(gym.Env):
         self.energy = 0.0
         self.off_latency = 0.0      # If the current policy is local it translates to the local execution latency
         self.action = 0
-        self.probing = True         # Updating channel estimates in the buffer
-        self.delta_T = 0            # The shield's grace period (multiples of the time window)
-        self.channel_params = {phi_true: 0, rtt_true: 0, que_true: 0, phi_est: 0, rtt_est: 0, que_est: 0}
+        self.probe_tu = 0
+        self.delta_tu = 0
 
         # Always start from the beginning
         self.curb_hit = False
@@ -495,34 +485,12 @@ class CarlaOffloadEnv(gym.Env):
         xi = self.xi
         r = self.r
 
-        # There should be a receiver's logic either here or after the sampling (to indicate whether the samples have been received or not)
-
-        # Sample the environment true values 
-        self.channel_params['phi_true'] = self.phi_sampler.sample(1)[0]
-        self.channel_params['rtt_true'] = self.rtt_sampler.sample(1)[0]
-        self.channel_params['que_true'] = self.que_sampler.sample(1)[0]
-        if self.probing:                                # Set to false when transmitting, set to true if received successfully or probing
-            # Update true estimates in each of the network parameters' buffer - ego vehicle at window t has access to the t-1 values
-            if len(self.phi_list) > self.buffer_size+1:
-                self.phi_list.popleft()
-                self.rtt_list.popleft()
-                self.que_list.popleft()
-            self.phi_list.append(self.channel_params['phi_true'])
-            self.rtt_list.append(self.channel_params['rtt_true'])
-            self.que_list.append(self.channel_params['que_true'])
-        # Update Current estimate for offloading decisions 
-        self.phi_est = self.phi_sampler.fn_dict[self.estimation_fn](self.phi_list, 'datarate')    # if it doesn't work bring average and worst here and call them directly
-        self.rtt_est = self.rtt_sampler.fn_dict[self.estimation_fn](self.rtt_list, 'delay')
-        self.que_est = self.que_sampler.fn_dict[self.estimation_fn](self.que_list, 'delay')
-
-        self.energy_monitor.certify_deadline()                  
+        self.probe_tu, self.delta_tu = self.throughput_prober.sample(1)                         
+        self.energy_monitor.certify_deadline()
         if not self.energy_monitor.verify_combinations():
             print("Local pipeline latency > deadline!")         # operation needs to be verified
             self.close()
-        self.energy_monitor.determine_offloading_decision(channel_params, self.delta_T)     # TODO: delta_T needs to be coming from the shield (IT SHOULD NOT BE UPDATED IF IN TRANSIT FLAG IS SET)
-        if self.energy_monitor.recover_flag:
-            self.selected_action = 0            # remain local cause you just recoved from missed deadlines
-
+        self.energy_monitor.determine_offloading_decision(self.probe_tu, self.delta_tu)      
        
         if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')) and action is not None:
             control = self.agent.run_step()
