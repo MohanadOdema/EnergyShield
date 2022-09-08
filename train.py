@@ -21,7 +21,6 @@ if USE_ROUTE_ENVIRONMENT:
 else:
     from CarlaEnv.carla_lap_env import CarlaLapEnv as CarlaEnv
 
-
 def train(params, start_carla=True, restart=False):
     # Read parameters
     learning_rate               = params["learning_rate"]
@@ -54,7 +53,6 @@ def train(params, start_carla=True, restart=False):
     test                        = params["test"]
     gaussian                    = params["gaussian"]
     track                       = params["track"]
-
 
     if 'mimic' not in params['arch'] and params["offload_position"] == 'bottleneck':
         if params['arch'] == 'ResNet18':

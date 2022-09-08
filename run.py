@@ -85,7 +85,7 @@ def train(params, start_carla=True, restart=False):
     else:
         raise ValueError("{} is Unidentified resolution for observation frame.".format(params['observation_dims']))
 
-    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'], params['arch'], params['offload_policy'], params['offload_position'], params['HW']+"_"+str(params['deadline']))
+    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'] +"_"+ params['arch'] +"_"+ params['offload_policy']+"_"+params['offload_position']+"_Belay_"+str(params['belay_mode']), params['HW']+"_"+str(params['deadline']))
 
     # Set seeds
     if isinstance(seed, int):
@@ -145,7 +145,7 @@ def train(params, start_carla=True, restart=False):
     input_shape = np.array([vae.z_dim + len(measurements_to_include)]) # [69] for the PPO
     num_actions = env.action_space.shape[0]         # steer and throttle if PPO
 
-    # Create model      # TODO: add support for PPO_CASCADE (import)
+    # Create model     
     if model_name.startswith('agent'): 
         print("Creating model")
         model = PPO(input_shape, env.action_space, 
@@ -228,12 +228,13 @@ def train(params, start_carla=True, restart=False):
             else:
                 video_recorder = None
 
-            path = '/home/mohanadodema/shielding_offloads/' + model.log_dir + str(episode_idx) + '_log.log'
+            path = '/home/mohanadodema/EnergyShield/' + model.log_dir + str(episode_idx) + '_log.log'
             env.client.start_recorder(path, True)   
 
             # Reset environment
-            ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none= [], [], [], [], [], [], [], [], [], [], [], [], []
-            probe_tu, exp_tu, selected_action, correct_action, probe_latency, probe_energy, actual_latency, actual_energy, exp_latency, exp_energy, miss_flag = [], [], [], [], [], [], [], [], [], [], []
+            ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none = [], [], [], [], [], [], [], [], [], [], [], [], []
+            delta_T, phi_est, rtt_est, que_est, phi_true, rtt_true, que_true, miss_flag, rx_flag, transit_flag, recover_flag = [], [], [], [], [], [], [], [], [], [], []
+            selected_action, correct_action, est_latency, est_energy, true_latency, true_energy, exp_latency, exp_energy = [], [], [], [], [], [], [], []
 
             observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
             detections = object_detector.detect(observation_input)      
@@ -347,21 +348,29 @@ def train(params, start_carla=True, restart=False):
                     masked_detections = new_masked_detections
 
                     # offloading measurements
-                    probe_tu.append(round(offloading_info["probe_tu"], 3))
-                    exp_tu.append(round(offloading_info["probe_tu"] + offloading_info["delta_tu"], 3))
+                    phi_est.append(round(offloading_info["phi_est"], 3))
+                    rtt_est.append(round(offloading_info["rtt_est"], 3))
+                    que_est.append(round(offloading_info["que_est"], 3))
+                    phi_true.append(round(offloading_info["phi_true"], 3))
+                    rtt_true.append(round(offloading_info["rtt_true"], 3))
+                    que_true.append(round(offloading_info["que_true"], 3))
                     selected_action.append(offloading_info["selected_action"])
                     correct_action.append(offloading_info["correct_action"])
                     try:
-                        probe_latency.append(round(offloading_info["probe_latency"], 3))
-                        probe_energy.append(round(offloading_info["probe_energy"], 3))
+                        est_latency.append(round(offloading_info["est_latency"], 3))
+                        est_energy.append(round(offloading_info["est_energy"], 3))
                     except TypeError:
-                        probe_latency.append(offloading_info["probe_latency"])
-                        probe_energy.append(offloading_info["probe_energy"])
-                    actual_latency.append(round(offloading_info["actual_latency"], 3))
-                    actual_energy.append(round(offloading_info["actual_energy"], 3))
+                        est_latency.append(offloading_info["est_latency"])
+                        est_energy.append(offloading_info["est_energy"])
+                    true_latency.append(round(offloading_info["true_latency"], 3))
+                    true_energy.append(round(offloading_info["true_energy"], 3))
                     exp_latency.append(round(offloading_info["exp_latency"], 3))
                     exp_energy.append(round(offloading_info["exp_energy"], 3))
+                    delta_T.append(offloading_info["delta_T"])
                     miss_flag.append(offloading_info["missed_deadline_flag"])
+                    rx_flag.append(offloading_info["rx_flag"])
+                    transit_flag.append(offloading_info["transit_flag"])
+                    recover_flag.append(offloading_info["recover_flag"])
 
                     if terminal_state:
                         route = info["route"]
@@ -429,18 +438,19 @@ def train(params, start_carla=True, restart=False):
             if not params["no_save"]:
 
                 plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
-                plot_energy_stats(exp_latency, exp_energy, exp_tu, miss_flag, model.plot_dir, episode_idx, params)
+                plot_energy_stats(exp_latency, exp_energy, phi_true, miss_flag, model.plot_dir, episode_idx, params)
 
                 df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'ego_x': pd.Series(ego_x), 'ego_y': pd.Series(ego_y), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
-                                    'miss_flag': pd.Series(miss_flag), 'probe_tu': pd.Series(probe_tu), 'exp_tu': pd.Series(exp_tu), 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action),
-                                    'probe_latency': pd.Series(probe_latency), 'exp_latency': pd.Series(exp_latency), 'probe_energy': pd.Series(probe_energy), 'exp_energy': pd.Series(exp_energy)})
+                                    '': "", 'delta_T': pd.Series(delta_T), 'rx_flag': pd.Series(rx_flag), 'miss_flag': pd.Series(miss_flag), 'transit_flag': pd.Series(transit_flag), 'recover_flag': pd.Series(recover_flag), 
+                                    '': "", 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action), 'est_latency': pd.Series(est_latency), 'exp_latency': pd.Series(exp_latency), 'est_energy': pd.Series(est_energy), 'exp_energy': pd.Series(exp_energy),
+                                    '': "", 'phi_est': pd.Series(phi_est), 'rtt_est': pd.Series(rtt_est), 'que_est': pd.Series(que_est), 'phi_true': pd.Series(phi_true), 'rtt_true': pd.Series(rtt_true), 'que_true': pd.Series(que_true)})
                 df.to_csv(model.plot_dir + '/train_' + str(episode_idx) + '.csv')
                 # Write episodic values
                 if video_recorder is not None:
                     video_recorder.release()
                 if (env.distance_traveled > 0.0):
                     data_row =  [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3),
-                                np.mean(exp_latency), np.mean(exp_energy), env.energy_monitor.missed_deadlines, env.energy_monitor.max_succ_interrupts, env.energy_monitor.missed_offloads, env.energy_monitor.misguided_energy]
+                                np.mean(exp_latency), np.mean(exp_energy), env.offloading_manager.missed_deadlines, env.offloading_manager.max_succ_interrupts, env.offloading_manager.missed_offloads, env.offloading_manager.misguided_energy]
                     if test:
                         with open(valid_data_path, 'a', newline='') as fd:
                             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -496,22 +506,15 @@ if __name__ == "__main__":
 
     # Training parameters
     parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name") #choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'casc_agent4', 'BasicAgent', 'BehaviorAgent'])
-    parser.add_argument("--reward_fn", type=str,
-                        default="reward_speed_centering_angle_multiply",
-                        help="Reward function to usfe. See reward_functions.py for more info.")
-    parser.add_argument("--seed", type=int, default=0,
-                        help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed " +
-                             "with this option in our experience)")
+    parser.add_argument("--reward_fn", type=str, default="reward_speed_centering_angle_multiply", help="Reward function to usfe. See reward_functions.py for more info.")
+    parser.add_argument("--seed", type=int, default=0, help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed with this option in our experience)")
     parser.add_argument("--eval_interval", type=int, default=100, help="Number of episodes between evaluation runs")
-    parser.add_argument("-record_eval", action="store_true", default=False,
-                        help="If True, save videos of evaluation episodes " +
-                             "to models/model_name/videos/")
+    parser.add_argument("-record_eval", action="store_true", default=False, help="If True, save videos of evaluation episodes to models/model_name/videos/")
 
     # Safety Filter Setting
     parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
     parser.add_argument("-penalize_steer_diff", action="store_true", default=False, help="Penalize RL's steering output and filter's output")
     parser.add_argument("-penalize_dist_obstacle", action="store_true", default=False, help="Add a penalty when the RL agent gets closer to an obstacle")
-
     parser.add_argument("-obstacle", action="store_true", default=False, help="Add obstacles")
     parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
     parser.add_argument("--track", type=int, default=1, help="Track Number")
@@ -530,10 +533,10 @@ if __name__ == "__main__":
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
     parser.add_argument("--deadline", type=int, help="time window", default=100)
     parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['80p', '480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='80p')
-    parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='LTE')
-    parser.add_argument("--conn_overhead", action="store_true", default=False, help="Account for the connection establishment overhead separately alongside data transfer")
+    parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='WiFi')
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=20)#13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="gaussian noise scale/variance")
+    parser.add_argument("--belay_mode", action='store_true', default=False, help="belay till delta_T expires to resume processing" )
 
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
@@ -541,9 +544,9 @@ if __name__ == "__main__":
     parser.add_argument("--phi_scale", type=float, default=20, help="scale parameter for the channel capacity pdf")
     parser.add_argument("--phi_shift", type=float, default=0, help="shift parameter for the channel capacity pdf")
     parser.add_argument("--rtt_dist", type=str, default='gamma', help="use gamma or rayleigh pdf for rtt", choices=['rayleigh', 'gamma'])
-    parser.add_argument("--rtt_shape", type=float, default=3.5, help="shape parameter for RTT pdf")
-    parser.add_argument("--rtt_scale", type=float, default=5.5, help="scale parameter for RTT pdf")
-    parser.add_argument("--rtt_shift", type=float, default=10, help="shift from zero for RTT pdf")
+    parser.add_argument("--rtt_shape", type=float, default=1.25, help="shape parameter for RTT pdf")     # 3.5
+    parser.add_argument("--rtt_scale", type=float, default=2, help="scale parameter for RTT pdf")     # 5.5
+    parser.add_argument("--rtt_shift", type=float, default=2, help="shift from zero for RTT pdf")      # 10
     parser.add_argument("--qsize", type=int, default=4000 , help='queue size at the server')
     parser.add_argument("--arate", type=int, default=970 , help='arrival rate for queue size pdf')
     parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')

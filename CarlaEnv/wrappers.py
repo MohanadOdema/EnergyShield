@@ -310,6 +310,11 @@ class SafetyFilter():
         self.rBar = 4
         self.steer_to_angle = 1.22173
 
+    def output_delta_T(self, control):
+        # Based on the measurement of the xi and r, (maybe speed and other factors) - we can output the delta_T 
+        # Should include some preprocessing to floor it to a multiplier
+        raise NotImplementedError
+
     def toggle_filtering(self):
         self.filtering = not self.filtering
     def barrier(self):

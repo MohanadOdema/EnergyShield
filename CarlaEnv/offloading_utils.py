@@ -7,6 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy import stats
+from scipy.stats import rv_discrete
 
 # If needed, we can average and benchmark these ratings to a mean and standard deviation we can
 
@@ -89,7 +90,6 @@ class OffloadingManager():
         self.deadline               = params["deadline"]
         self.img_resolution         = params["img_resolution"]
         self.comm_tech              = params["comm_tech"]
-        self.conn_overhead          = params["conn_overhead"]
         self.bottleneck_ch          = params["bottleneck_ch"]
         self.bottleneck_quant       = params["bottleneck_quant"]
         self.scale                  = params["noise_scale"]
@@ -103,10 +103,14 @@ class OffloadingManager():
         self.local_power            = local_execution_power[self.HW]
         self.ret_size               = None      # return size from the control outputs
         self.full_local_energy      = self.local_power * self.full_local_latency
-        self.probe_off_latency      = None      # estimate
-        self.probe_off_energy       = None      
+        self.est_off_latency        = None      # estimate
+        self.est_off_energy         = None      
         self.true_off_latency       = None      # actual
         self.true_off_energy        = None
+        # self.exp_off_latency        = None
+        # self.exp_off_energy         = None
+        self.belay_mode             = params["belay_mode"]          # currently only applicable for shield
+        self.belaying               = False
 
         self.reset()
 
@@ -122,64 +126,75 @@ class OffloadingManager():
         self.delta_T                = 1         # Final dealdine for receiving outputs, defined as multiples of time windows (always 1 if not shield)
         self.recover_flag           = False     # If delta_T predicted by the shield was not met during operation
         self.transit_flag           = False     # For when the shield has already initiated transmission for multiple time windows
+        self.rx_flag                = False     # For when the offloaded result is returned - only needed for shield belaying
         self.transit_window         = 0         # Current order of operational time window relative to delta_T
         self.rem_size               = 0         # If tx size carries to the following window
         self.rem_val                = 0         # For when a latency componenet initiated but will finish in a successive window
-        self.current_transition     = 0         # What offloading processes finished {0: Tx, 1: 0.5*RTT, 2: L_q, 3: 0.5*RTT} - no need to define the last explicitly as condition cause if it happens, we move to the next window
+        self.current_transition     = 0         # What offloading processes finished {0: Tx, 1: 0.5*RTT, 2: L_q, 3: 0.5*RTT} 
         self.current_tx_latency     = 0         # For breaking down the violation causes
         self.current_tx_energy      = 0
-        self.current_rtt1_latency   = 0
+        self.current_rtt1_latency   = 0         # These following components have no effect on energy
         self.current_que_latency    = 0
         self.current_rtt2_latency   = 0
 
-    def determine_offloading_decision(self, channel_params, delta_T):
+    def determine_offloading_decision(self, channel_params, delta_T, initialize=False):
         self.delta_T = delta_T
-        if self.transit_flag:        # TODO: I'll have to record a colum for self.in_transit_flag and self.transit_window in the excel as I'm recording based on remainders now
+        self.rx_flag = False         # reset every time window
+        if self.transit_flag:        
             self.transit_window += 1 # continuing from last window
             self.true_off_latency, self.true_off_energy = self.update(channel_params['phi_true'], channel_params['rtt_true'], channel_params['que_true'])
             self.record_violations(channel_params)
-            return      # as I do not have to make offloading decisions
+            return                  # I do not have to make offloading decisions
+        elif self.belay_mode and self.belaying:
+            self.transit_window += 1
+            self.exp_total_latency, self.exp_total_energy = 0, 0
+            if self.transit_window == self.delta_T - 1:
+                self.belaying = False                      # Next time window will be a new offloading decision
+            return
         else:
             self.transit_window = 0 
+            self.rem_size = 0
             self.true_off_latency, self.true_off_energy = self.evaluate(channel_params['phi_true'], channel_params['rtt_true'], channel_params['que_true'])     # true offloading estimates for decision making
-            # TODO: UPDATE REMAINDER SIZE, OFFLOADING OVERHEADS, AND SET IN_TRANSIT FLAG IF SHIELD operation and transmission not completed
-        # This will have to be for the window based policies 
-        self.correct_action = self.select_offloading_action('ideal')                                   # ideally should offload or not
-        if self.offload_policy == "local":
-            self.selected_action = 0
-        elif 'offload' in self.offload_policy:              # static offloading policies
-            self.probe_off_latency, self.probe_off_energy = self.evaluate(channel_params['phi_est'], channel_params['rtt_est'], channel_params['que_est'])  # estimate based on probed throughput
-            self.selected_action = 1 
-        else:                                               # adaptive offloading policies
-            self.probe_off_latency, self.probe_off_energy = self.evaluate(channel_params['phi_est'], channel_params['rtt_est'], channel_params['que_est'])     
-            self.selected_action = self.select_offloading_action('est')
+            self.correct_action = self.select_offloading_action('ideal')                                   # ideally should offload or not
+            if self.offload_policy == "local" or self.recover_flag == True or initialize == True:
+                self.recover_flag = False
+                self.selected_action = 0
+            elif 'offload' in self.offload_policy:              # static offloading policies
+                self.est_off_latency, self.est_off_energy = self.evaluate(channel_params['phi_est'], channel_params['rtt_est'], channel_params['que_est'], probe=True)      # estimate based on corresponding estimates of network conditions
+                self.selected_action = 1 
+            else:                                               # adaptive offloading policies
+                self.est_off_latency, self.est_off_energy = self.evaluate(channel_params['phi_est'], channel_params['rtt_est'], channel_params['que_est'], probe=True)     
+                self.selected_action = self.select_offloading_action('est')
         self.record_violations(channel_params)
 
-    def update(self, phi, rtt, que):        # TODO: check the parameters defined in Shield related parameters to make sure all are accounted for
-        rem_off_energy = 0                  # unless otherwise stated
+    def update(self, phi, rtt, que):        
+        rem_off_energy = 0                  # unless current_transition == 0
+        self.current_tx_latency, self.current_tx_energy = self.offload_overheads(phi, continuing_upload=True)
+        self.current_rtt1_latency, self.current_rtt2_latency, self.current_que_latency = 0.5*rtt, 0.5*rtt, que
         if self.current_transition == 0:
-            self.current_tx_latency, self.current_tx_energy = self.offload_overheads(phi, self.rem_size)
-            rem_off_latency = self.current_tx_latency + rtt + que        # rtt and queue changed for new window
+            rem_off_latency = self.current_tx_latency + rtt + que        # networks parameters changed for new window
             rem_off_energy = self.current_tx_energy
         elif self.current_transition == 1:
             self.current_tx_latency = 0     
-            # fn should calculate the remainder of complicit latency component given. I can reshape the deadlines met function in the shield conditions to go over each latency component separately and update the transition state 
-            rem_rtt1 = self.rem_val             # remeber to divide by 2 in the argument or return
+            rem_rtt1 = self.rem_val             
             rem_off_latency = rem_rtt1 + que + 0.5*rtt
         elif self.current_transition == 2:
-            self.current_tx_latency, self.current_rtt1 = 0, 0    
+            self.current_tx_latency, self.current_rtt1_latency = 0, 0    
             rem_que = self.rem_val
             rem_off_latency = rem_que + 0.5*rtt
         elif self.current_transition == 3:
-            self.current_tx_latency, self.current_rtt1, self.current_que = 0, 0, 0
+            self.current_tx_latency, self.current_rtt1_latency, self.current_que_latency = 0, 0, 0
             rem_rtt2 = self.rem_val # remeber to divide by 2 in the argument or return
             rem_off_latency = rem_rtt2
         return rem_off_latency, rem_off_energy
 
-    def evaluate(self, phi, rtt, que):   
-        self.current_tx_latency, self.current_tx_energy = self.offload_overheads(phi, self.input_size)
-        off_latency = self.head_latency + self.current_tx_latency + rtt + que
-        off_energy = self.head_latency*self.local_power + self.current_tx_energy
+    def evaluate(self, phi, rtt, que, probe=False):   
+        tx_latency, tx_energy = self.offload_overheads(phi)
+        if not probe:
+            self.current_tx_latency, self.current_tx_energy = tx_latency, tx_energy     # store true values for later analysis
+            self.current_rtt1_latency, self.current_rtt2_latency, self.current_que_latency = 0.5*rtt, 0.5*rtt, que 
+        off_latency = self.head_latency + tx_latency + rtt + que
+        off_energy = self.head_latency*self.local_power + tx_energy
         return off_latency, off_energy
 
     def select_offloading_action(self, estimate):
@@ -187,27 +202,23 @@ class OffloadingManager():
             latency, energy = self.est_off_latency, self.est_off_energy
         else:
             latency, energy = self.true_off_latency, self.true_off_energy
-        if self.offload_policy == 'strictShield':   # strictShield is based on comparing the values for one window (i.e., restrictive - want to offload every time window)
+        if self.offload_policy == 'strictShield':   # strictShield is based on comparing the values for one window (i.e., restrictive - want to compute every time window)
             # base decisions on a per-window basis
-            if self.delta_T  == 1:              # specific for delta_T=1 as it is a single window for behavioral remedy
-                if (energy < self.full_local_energy) and (latency < (self.deadline - (self.full_local_latency - self.head_latency))): # I need to think about including the fail-safe in this calculation
-                    return 1
-            elif self.delta_T > 1:              # slightly more relaxed latency constraint cause of the subsequent time windows, but still aiming to get the result every window 
-                if (energy < self.full_local_energy) and (latency < self.deadline):   
-                    return 1 
+            if (energy < self.full_local_energy) and (latency < self.deadline):   
+                return 1 
         elif self.offload_policy == 'energyShield':
             # energy on a window basis but latency on delta_T windows
-            if (energy < self.full_local_energy) and (latency < ((self.delta_T * self.deadline) - (self.full_local_latency - self.head_latency))):
+            if (energy < self.full_local_energy) and (latency < self.delta_T * self.deadline): # - (self.full_local_latency - self.head_latency))):
                 return 1
         elif self.offload_policy == 'looseShield':
             # base decisions on delta T windows
-            if (energy < (self.full_local_energy * self.delta_T)) and (latency < ((self.delta_T * self.deadline) - (self.full_local_latency - self.head_latency))):
+            if (energy < (self.full_local_energy * self.delta_T)) and (latency < self.delta_T * self.deadline): # - (self.full_local_latency - self.head_latency))):
                 return 1
         elif 'failsafe' not in self.offload_policy:
             if (energy < self.full_local_energy) and (latency < self.deadline):
                 return 1 
         else:
-            if (energy < self.full_local_energy) and (latency < (self.deadline - (self.full_local_latency - self.head_latency))):     # Leaving room for tail latency
+            if (energy < self.full_local_energy) and (latency < (self.deadline - (self.full_local_latency - self.head_latency))):    
                 return 1
         return 0
 
@@ -217,49 +228,49 @@ class OffloadingManager():
                 self.missed_deadline_flag = True
                 self.missed_deadlines += 1
                 if 'Shield' in self.offload_policy:
-                    assert self.transit_window <= (self.delta_T - 1)
+                    assert self.transit_window < (self.delta_T)
                     violation_breakdown(channel_params) 
-                    if self.transit_window < (self.delta_t - 1):
+                    if self.transit_window < (self.delta_T - 1):   # -1 as we want to revert to local execution if needed for the window starting at delta_T
                         self.transit_flag = True
-                    elif self.transit_window == (self.delta_t - 1):
+                    elif self.transit_window == (self.delta_T - 1):
                         self.transit_flag = False                      # Next window is a new window
                         self.recover_flag = True 
                     else:
                         raise RuntimeError("Incorrent transit window #!")
                 self.succ_interrupts += 1
-            else:
-                if not self.transit_flag:                     # non-transit window with violation
-                    self.misguided_energy += 1                # is violation due to energy?
+            else:                                             # is violation (if not transit) due to energy?
+                self.rx_flag = True                           # Received control results this window
+                if self.belay_mode and (self.transit_window < self.delta_T - 1):
+                        self.belaying = True
+                elif not self.transit_flag and not self.belaying and not self.recover_flag:                     # so as not to recount violations
+                    self.misguided_energy += 1  
                 self.missed_deadline_flag = False   
-                self.transit_flag = False                                            
+                self.transit_flag = False                     
                 self.succ_interrupts = 0    
         else:                                                 # Currently shield is for selected offload actions
+            self.rx_flag = True
             self.missed_deadline_flag = False
-            self.succ_interrupts = 0
             self.transit_flag = False
-            if self.selected_action < self.correct_action:      # if better energy from offload (this is without conteextual safety)
+            self.succ_interrupts = 0
+            if self.selected_action < self.correct_action:    # if better energy from offload (this is without conteextual safety)
                 self.missed_offloads += 1
-        self.exp_total_latency, self.exp_total_energy = self.remedy(channel_params)        # Changes in TX overhead or failsafe invocation
+        self.exp_off_latency, self.exp_off_energy = self.remedy(channel_params)        # Changes in TX overhead or failsafe invocation
         self.max_succ_interrupts = max(self.max_succ_interrupts, self.succ_interrupts)
 
     def deadline_missed(self):
-        if 'Shield' in self.offload_policy:
-            if self.transit_flag is False and (self.head_latency + self.true_off_latency > self.deadline):
-                return True
-            elif self.transit_flag is True and (self.true_off_latency > self.deadline):
+        if 'failsafe' not in self.offload_policy:
+            if (self.true_off_latency > self.deadline):         # self.true_off_latency takes into consideration both self.head_latency if needed (evaluate() and update() distinction)
                 return True 
         elif 'failsafe' in self.offload_policy:
-            if self.full_local_latency + self.true_off_latency > self.deadline:
+            if (self.full_local_latency-self.head_latency) + self.true_off_latency > self.deadline:
                 return True
-        else: 
-            if self.head_latency + self.true_off_latency > self.deadline:
-                return True 
         return False
 
     def violation_breakdown(channel_params):
         if self.current_tx_latency > self.deadline:
             self.current_transition = 0
-            self.rem_size = self.input_size - ((channel_params['phi_true']*self.deadline)/1000)     # Mbit - (Mbps*ms/1000)
+            init_latency = self.head_latency if self.transit_window == 0 else 0
+            self.rem_size = self.input_size - ((channel_params['phi_true']*(self.deadline-init_latency))/1000)     # Mbit: (Mbps*ms/1000)
         elif self.current_tx_latency + self.current_rtt1_latency > self.deadline:
             self.current_transition = 1
             self.rem_val = self.current_tx_latency + self.current_rtt1_latency - self.deadline       # The rolling-over latency
@@ -269,36 +280,32 @@ class OffloadingManager():
         elif self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency + self.current_rtt2_latency > self.deadline:
             self.current_transition = 3
             self.rem_val = self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency + self.current_rtt2_latency - self.deadline 
-        # remedy: total_energy = self.full_local_latency * self.local_power + (min((self.deadline * self.delta_T - self.full_local_latency), tx_latency)*upload_power) / 1000
-
-    def remedy(self, channel_params):
-        upload_power = self.compute_upload_data_transfer_power(channel_params['phi_true'], self.comm_tech)
-        if self.transit_flag is True:   # for shield
-            total_latency = self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency + self.current_rtt2_latency
-            if total_latency > self.deadline:
-                total_latency = self.deadline 
-            total_energy = self.current_tx_latency*upload_power
-            return total_latency, total_energy
-        tx_latency = self.compute_comm_latency(channel_params['phi_true']) 
-        assert self.current_tx_latency == tx_latency
-        upload_latency = tx_latency + channel_params['rtt_true'] + channel_params['que_true']       
-        if self.selected_action == 0:
-            total_latency = self.full_local_latency
-            total_energy = self.full_local_energy            
-        elif 'failsafe' in self.offload_policy and (self.head_latency + upload_latency) > (self.deadline - (self.full_local_latency - self.head_latency)):                   # fail-safe invoked
-            total_latency = self.deadline               # cap
-            total_energy = self.full_local_latency * self.local_power + ((self.deadline - self.full_local_latency)*upload_power) / 1000                     # The min is to reflect whether transmission concluded or not before the window expired
         else:
-            total_latency = self.head_latency + upload_latency
-            if total_latency > self.deadline:
-                upload_latency = self.deadline - self.head_latency       
-                total_latency = self.deadline           # cap
-            total_energy = self.head_latency*self.local_power + (upload_latency*upload_power) / 1000
+            raise RuntimeError("There was no deadline violation as far as the breakdown is concerned!")
+
+    def remedy(self, channel_params):          
+        upload_power = self.compute_upload_data_transfer_power(channel_params['phi_true'], self.comm_tech)
+        init_latency = self.head_latency if self.transit_window == 0 else 0
+        if self.transit_flag is True:   # this inherently accounts for missed_deadline_flag as well
+            total_latency = min(self.true_off_latency, self.deadline)
+            total_energy = min(self.current_tx_latency, self.deadline)*upload_power / 1000      # To account for cases when transmission exceeds one window
+        elif self.selected_action == 0:
+            total_latency = self.full_local_latency
+            total_energy = self.full_local_energy     
+        elif 'failsafe' in self.offload_policy and self.missed_deadline_flag:                   # fail-safe invoked
+            total_latency = self.deadline               # cap
+            total_energy = self.full_local_latency * self.local_power + (min(self.current_tx_latency, (self.deadline - self.full_local_latency))*upload_power) / 1000                     # The min is to reflect whether transmission concluded or not before the window expired
+        elif self.missed_deadline_flag:
+            total_latency = self.deadline
+            total_energy = init_latency*self.local_power + min(self.current_tx_latency, self.deadline)*upload_power / 1000 
+        else:
+            total_latency = self.true_off_latency
+            total_energy = self.true_off_energy
         return total_latency, total_energy
 
-    def offload_overheads(self, phi_u, upload_size, phi_d=None):
+    def offload_overheads(self, phi_u, continuing_upload=False, phi_d=None):
         # Upload overheads
-        upload_latency = self.compute_comm_latency(phi_u, upload_size)
+        upload_latency = self.compute_comm_latency(phi_u, continuing_upload)
         upload_power = self.compute_upload_data_transfer_power(phi_u, self.comm_tech)
         # Download overheads
         if self.ret_size is not None and phi_d is not None:
@@ -312,8 +319,10 @@ class OffloadingManager():
         tx_energy = (upload_latency*upload_power + download_latency*download_power) / 1000       # mJ
         return tx_latency, tx_energy
 
-    def compute_comm_latency(self, phi):
-        if self.offload_position == 'direct':
+    def compute_comm_latency(self, phi, continuing_upload=False):
+        if continuing_upload:          # remainder transmission overhead from a prior time window
+            upload_latency = self.estimate_comm_latency(phi, self.rem_size)
+        elif self.offload_position == 'direct':
             upload_latency = self.estimate_comm_latency(phi, self.input_size)
         elif self.offload_position == '0.5_direct':
             upload_latency = self.estimate_comm_latency(phi, self.input_size*0.5)
@@ -324,7 +333,7 @@ class OffloadingManager():
         elif self.offload_position == 'bottleneck':
             upload_latency = self.estimate_comm_latency(phi, self.bottleneck_size)
         else:
-            raise ValueError("Unsupporeted offloading position")
+            raise RuntimeError("Not able to compute transmission latency!")
         return upload_latency
 
     def compute_input_size(self):                       # Two aspect ratios are applicable -> Classic: 4:3 and Widescreen: 16:9
@@ -416,57 +425,65 @@ class UploadThroughputSampler():
 #===============================================================================
 
 class TrueSamples():
-    def __init__(self):
-        pass
+    def __init__(self, estimation_fn):
+        self.estimation_fn = estimation_fn
 
-    def average(self, _list, data_type=None, stop_index=-1):
+    def avg(self, _list, data_type=None):
         # average of prior true values
-        return sum(_list[:stop_index]) / len(_list[:stop_index]) 
+        return sum(_list) / len(_list) 
 
-    def worst(self, _list, data_type='delay', stop_index=-1):
+    def worst(self, _list, data_type='delay'):
         # recent worst true values
         if data_type == 'delay':
-            return max(_list[:stop_index])
+            return max(_list)
         elif data_type == 'datarate':
-            return min(_list[:stop_index])
+            return min(_list)
         else:
             raise ValueError("Unknown list type")
 
+    def estimate(self, fn='avg', _list=None, data_type='delay'):
+        _list = list(_list)
+        if self.estimation_fn == 'avg':
+            return self.avg(_list, data_type)
+        elif self.estimation_fn == 'worst':
+            return self.worst(_list, data_type)
+
 class RayleighSampler(TrueSamples):
     # Data rates
-    def __init__(self, scale, shift=0):
+    def __init__(self, estimation_fn, scale, shift=0):
         self.rayleigh_sigma = scale
         self.rayleigh_shift = shift
-        super().__init__()
+        super().__init__(estimation_fn)
 
     def sample(self, no_of_samples=1):
         return np.random.rayleigh(self.rayleigh_sigma, no_of_samples) + self.rayleigh_shift
 
 class ShiftedGammaSampler(TrueSamples):
     #  RTT delays
-    def __init__(self, shape, scale, shift=0):
+    def __init__(self, estimation_fn, shape, scale, shift=0):
         self.gamma_shape = shape
         self.gamma_scale = scale
         self.gamma_shift = shift
-        super().__init__()
+        super().__init__(estimation_fn)
 
     def sample(self, no_of_samples=1):
         assert self.gamma_shift >= 0
-        return np.random.gamma(self.gamma.shape, self.gamma_scale, no_of_samples) + self.gamma_shift
+        return np.random.gamma(self.gamma_shape, self.gamma_scale, no_of_samples) + self.gamma_shift
 
 class NetworkQueueModel(TrueSamples):
     # Queuing Delays
-    def __init__(self, qsize, arate, srate):
-        self.load = arate/srate
+    def __init__(self, estimation_fn, qsize, arate, srate):
+        self.srate = srate
+        self.load = arate/self.srate
         self.xk = np.arange(qsize)
         self.pk = [((1 - self.load) * self.load**step) / (1-self.load**(qsize+1)) for step in self.xk]
         self.pk_sum = sum(self.pk)
         self.pk_norm = tuple(p / self.pk_sum for p in self.pk)
         self.distribution = rv_discrete(name='Queuing', values=(self.xk, self.pk_norm))
-        super().__init__()
+        super().__init__(estimation_fn)
 
     def sample(self, no_of_samples=1):
         # assuming each task takes 1 ms
-        occupancy = self.server_delays.distribution.rvs(size=no_of_samples)
-        wait_time = occupancy/srate
+        occupancy = self.distribution.rvs(size=no_of_samples)
+        wait_time = occupancy/self.srate
         return wait_time

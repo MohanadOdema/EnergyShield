@@ -75,20 +75,19 @@ class CarlaOffloadEnv(gym.Env):
         self.buffer_size            = params["buffer_size"]
         self.agent                  = None
         self.model_name             = model_name
-        # self._queues                = []
         self.display                = None
         self.phi_list               = deque()
         self.rtt_list               = deque()
         self.que_list               = deque()
         self.estimation_fn          = params["estimation_fn"]
 
-        self.energy_monitor = OffloadingManager(params)
-        self.phi_sampler = RayleighSampler(params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
+        self.offloading_manager = OffloadingManager(params)
+        self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
         if params['rtt_dist'] == 'gamma':
-            self.rtt_sampler = ShiftedGammaSampler(params['rtt_shape'], params['rtt_scale'], params['rtt_shift']) # samples rtt (ms)
+            self.rtt_sampler = ShiftedGammaSampler(params['estimation_fn'], params['rtt_shape'], params['rtt_scale'], params['rtt_shift']) # samples rtt (ms)
         elif params['rtt_dist'] == 'rayleigh':
-            self.rtt_sampler = RayleighSampler(params['rtt_scale'], params['rtt_shift'])
-        self.que_sampler = NetworkQueueModel(params['qsize'], params['arate'], params['srate'])
+            self.rtt_sampler = RayleighSampler(params['estimation_fn'], params['rtt_scale'], params['rtt_shift'])
+        self.que_sampler = NetworkQueueModel(params['estimation_fn'], params['qsize'], params['arate'], params['srate'])
 
         if apply_filter:
             self.safety_filter = SafetyFilter()
@@ -201,11 +200,6 @@ class CarlaOffloadEnv(gym.Env):
                                   attach_to=self.vehicle, on_recv_image=lambda e: self._set_viewer_image(e),
                                   sensor_tick=0.0 if self.synchronous else 1.0/self.fps)
 
-            # This is if following synchronous_mode.py  # observation buffers do the job 
-            # make_queue(self.world.on_tick)
-            # make_queue(self.dashcam.listen)
-            # make_queue(self.camera.listen)
-
             # Create obstacle
             self.obstacles = []
             self.create_obstacles = True
@@ -223,19 +217,6 @@ class CarlaOffloadEnv(gym.Env):
         random.seed(seed)
         return [seed]
 
-    # This is if following synchronous_mode.py
-    # def make_queue(register_event):
-    #     q = queue.Queue()
-    #     register_event(q.put)
-    #     self._queues.append(q)
-
-    # # This is if following synchronous_mode.py
-    # def _retrieve_data(self, sensor_queue, timeout=2.0):
-    #     while True:
-    #         data = sensor_queue.get(timeout=timeout)
-    #         if data.frame == self.frame:
-    #             return data
-
     def reset(self, is_training=True, seed=0):
 
         # Do a soft reset (teleport vehicle)
@@ -249,11 +230,10 @@ class CarlaOffloadEnv(gym.Env):
         self.vehicle.tick()
 
         self.energy = 0.0
-        self.off_latency = 0.0      # If the current policy is local it translates to the local execution latency
+        self.off_latency = 0.0      # local execution latency if policy is local
         self.action = 0
-        self.probing = True         # Updating channel estimates in the buffer
-        self.delta_T = 0            # The shield's grace period (multiples of the time window)
-        self.channel_params = {phi_true: 0, rtt_true: 0, que_true: 0, phi_est: 0, rtt_est: 0, que_est: 0}
+        self.delta_T = 1            # The shield's grace period (multiples of the time window)
+        self.channel_params = {'phi_true': 0, 'rtt_true': 0, 'que_true': 0, 'phi_est': 0, 'rtt_est': 0, 'que_est': 0}
 
         # Always start from the beginning
         self.curb_hit = False
@@ -273,14 +253,10 @@ class CarlaOffloadEnv(gym.Env):
         if is_training:
             self.obstacle_percentage = 1.0
 
-        self.energy_monitor.reset()     # reset stats for new episode
+        self.offloading_manager.reset()     # reset stats for new episode
 
         if self.agent is not None:
             self.agent.set_destination(self.destination)
-
-        # if len(self.world.actor_list) > 6:
-        #     print(self.world.actor_list[5].type_id)
-        #     exit()
 
         # Creating obstacles
         if self.obstacle_en:
@@ -348,6 +324,7 @@ class CarlaOffloadEnv(gym.Env):
                 print("len obstacles", len(self.obstacles))
                 self.obstacle_counter = 0
 
+        # TODO: check why do we have this code?
         if self.synchronous:
             ticks = 0
             while ticks < self.fps * 2:
@@ -365,6 +342,7 @@ class CarlaOffloadEnv(gym.Env):
         self.start_t = time.time()
         self.step_count = 0
         self.is_training = is_training
+        self.initialize = False
 
         self.start_waypoint_index = self.current_waypoint_index
         
@@ -405,28 +383,32 @@ class CarlaOffloadEnv(gym.Env):
             "",
             # "Maneuver:        % 11s"       % maneuver,
             "Laps completed:    % 7.2f %%" % (self.laps_completed * 100.0),
-            "Distance traveled: % 7d m"    % self.distance_traveled,
-            "Center deviance:   % 7.2f m"  % self.distance_from_center,
+            # "Distance traveled: % 7d m"    % self.distance_traveled,
+            # "Center deviance:   % 7.2f m"  % self.distance_from_center,
             # "Avg center dev:    % 7.2f m"  % (self.center_lane_deviation / self.step_count),
             "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
             "",
-            "Architecture:    %s        "  % (self.energy_monitor.arch),
-            "Policy:          %s        "  % (self.energy_monitor.offload_policy),
-            "Deadline:         % 1.0f ms"  % (self.energy_monitor.deadline),
-            "Probe tu:        %7.2f Mbps"  % (self.probe_tu),
-            "Delta tu:        %7.2f Mbps"  % (self.delta_tu),
+            # "Architecture:    %s        "  % (self.offloading_manager.arch),
+            "Policy (DL): %s (%1.0f ms)" % (self.offloading_manager.offload_policy, self.offloading_manager.deadline),
+            "delta_T:                 %1.0f" % (self.delta_T),
+            "transit_flag:      %s"            % (self.offloading_manager.transit_flag),
+            "recover_flag:      %s"            % (self.offloading_manager.recover_flag),
             "",
-            "Local Ergy:        %7.2f mJ"  % (self.energy_monitor.full_local_energy),
-            "Exp Ergy:          %7.2f mJ"  % (self.energy_monitor.exp_total_energy),
-            "Local Latency:     %7.2f ms"  % (self.energy_monitor.full_local_latency),
-            "Exp Latency:       %7.2f ms"  % (self.energy_monitor.exp_total_latency),
+            "Phi True:          %7.2f Mbps"    % (self.channel_params['phi_true']),
+            "RTT True:          %7.2f ms"      % (self.channel_params['rtt_true']),
+            "que True:          %7.2f ms"      % (self.channel_params['que_true']),
             "",
-            "Selected Action:     % 1.0f"  % (self.energy_monitor.selected_action),
-            "Correct Action:      % 1.0f"  % (self.energy_monitor.correct_action),
+            "Local Ergy:        %7.2f mJ"  % (self.offloading_manager.full_local_energy),
+            "Exp Ergy:          %7.2f mJ"  % (self.offloading_manager.exp_off_energy),
+            "Local Latency:     %7.2f ms"  % (self.offloading_manager.full_local_latency),
+            "Exp Latency:       %7.2f ms"  % (self.offloading_manager.exp_off_latency),
             "",
-            "Missed Deadlines:     %1.0f"  % (self.energy_monitor.missed_deadlines),
-            "Max succ interrupts:  %1.0f"  % (self.energy_monitor.max_succ_interrupts),
-            "Missed offloads:      %1.0f"  % (self.energy_monitor.missed_offloads)
+            "Selected Action:     % 1.0f"  % (self.offloading_manager.selected_action),
+            "Correct Action:      % 1.0f"  % (self.offloading_manager.correct_action),
+            "",
+            "Missed Deadlines:     %1.0f"  % (self.offloading_manager.missed_deadlines),
+            "Max succ interrupts:  %1.0f"  % (self.offloading_manager.max_succ_interrupts),
+            "Missed offloads:      %1.0f"  % (self.offloading_manager.missed_offloads)
         ])
 
         # Blit image from spectator camera
@@ -461,7 +443,6 @@ class CarlaOffloadEnv(gym.Env):
         self.xi = math.atan2(player_transform.location.y- obstacle_location.y, player_transform.location.x- obstacle_location.x) - psi
         self.xi = math.atan2(math.sin(self.xi), math.cos(self.xi))
 
-
     def step(self, action):
         self.steer_diff = 0.0
         
@@ -495,55 +476,73 @@ class CarlaOffloadEnv(gym.Env):
         xi = self.xi
         r = self.r
 
-        # There should be a receiver's logic either here or after the sampling (to indicate whether the samples have been received or not)
-
         # Sample the environment true values 
         self.channel_params['phi_true'] = self.phi_sampler.sample(1)[0]
         self.channel_params['rtt_true'] = self.rtt_sampler.sample(1)[0]
         self.channel_params['que_true'] = self.que_sampler.sample(1)[0]
-        if self.probing:                                # Set to false when transmitting, set to true if received successfully or probing
-            # Update true estimates in each of the network parameters' buffer - ego vehicle at window t has access to the t-1 values
-            if len(self.phi_list) > self.buffer_size+1:
+        # Update network parameters if not in transit state
+        if ((not self.offloading_manager.transit_flag) and (not self.offloading_manager.recover_flag)) or self.rx_flag:           
+            # Ego vehicle estimates parameters at window t based on the t-1 values 
+            if len(self.phi_list) == self.buffer_size:
+                self.initialize = False
+                # Update Current estimates based on prior values for offloading decisions 
+                self.channel_params['phi_est'] = self.phi_sampler.estimate(self.estimation_fn, self.phi_list, 'datarate')
+                self.channel_params['rtt_est'] = self.rtt_sampler.estimate(self.estimation_fn, self.rtt_list, 'delay')
+                self.channel_params['que_est'] = self.que_sampler.estimate(self.estimation_fn, self.que_list, 'delay')
+                # make space for new samples
                 self.phi_list.popleft()
                 self.rtt_list.popleft()
                 self.que_list.popleft()
+            else:
+                self.initialize = True
             self.phi_list.append(self.channel_params['phi_true'])
             self.rtt_list.append(self.channel_params['rtt_true'])
             self.que_list.append(self.channel_params['que_true'])
-        # Update Current estimate for offloading decisions 
-        self.phi_est = self.phi_sampler.fn_dict[self.estimation_fn](self.phi_list, 'datarate')    # if it doesn't work bring average and worst here and call them directly
-        self.rtt_est = self.rtt_sampler.fn_dict[self.estimation_fn](self.rtt_list, 'delay')
-        self.que_est = self.que_sampler.fn_dict[self.estimation_fn](self.que_list, 'delay')
 
-        self.energy_monitor.certify_deadline()                  
-        if not self.energy_monitor.verify_combinations():
-            print("Local pipeline latency > deadline!")         # operation needs to be verified
-            self.close()
-        self.energy_monitor.determine_offloading_decision(channel_params, self.delta_T)     # TODO: delta_T needs to be coming from the shield (IT SHOULD NOT BE UPDATED IF IN TRANSIT FLAG IS SET)
-        if self.energy_monitor.recover_flag:
-            self.selected_action = 0            # remain local cause you just recoved from missed deadlines
+        # TODO: I will need to play around with the parmaeters of rtt and phi and the window as well
+        # print(self.phi_list, self.rtt_list, self.que_list)
 
-       
+        self.offloading_manager.certify_deadline()                  
+        if not self.offloading_manager.verify_combinations():
+            print("Local pipeline latency > deadline!")        
+            self.close()            
+
+        self.offloading_manager.determine_offloading_decision(self.channel_params, self.delta_T, self.initialize)
+
+        # Basic Agents
         if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')) and action is not None:
             control = self.agent.run_step()
             steer = control.steer
             throttle = control.throttle
-
-            self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
-            self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
-
-            # control.manual_gear_shift = False 
-            # self.vehicle.apply_control(control)
-
-            # self.vehicle.set_autopilot(True)
-
+            if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:           # shield transmission 
+                pass                                             # no new control outputs
+            else:                                                # new control outputs
+                if self.offloading_manager.belay_mode and not self.offloading_manager.rx_flag: 
+                    pass
+                else:
+                    self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
+                    self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
+        # RL Agents
         elif action is not None:
-            steer, throttle = [float(a) for a in action]
-            self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
-            self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
+            steer, throttle = [float(a) for a in action]        
+            if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:           # shield transmission
+                pass                                             # no new control outputs
+            else:                                                # new control outputs
+                if self.offloading_manager.belay_mode and not self.offloading_manager.rx_flag:
+                    pass
+                else:
+                    self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
+                    self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
             if self.safety_filter is not None:
-                self.safety_filter.set_filter_inputs(self.xi, self.r)
+                self.safety_filter.set_filter_inputs(self.xi, self.r, self.offloading_manager.transit_flag, self.offloading_manager.transit_window)          # shiled needs to take the input readings non the less
                 self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
+                if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:
+                    pass
+                else:
+                    if self.offloading_manager.belay_mode and not self.offloading_manager.rx_flag:
+                        pass
+                    else:
+                        self.delta_T = self.safety_filter.output_delta_T(self.vehicle.control)      # sample new delta_T for shield offloading operation
                 if filter_applied:
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
@@ -574,13 +573,13 @@ class CarlaOffloadEnv(gym.Env):
         #             self.world.tick()
         #         break
 
-
         if self.synchronous:
             self.clock.tick()
             while True:
-                self.world.tick()           # Based on carla documentation and previous SHieldNN implementation, the server FPS has to be twice as much as the client FPS, and hence why we do 2 world ticks per one clock tick.
+                self.world.tick()           # Based on carla documentation and previous SHieldNN implementation, the server FPS should be twice as much as the client FPS, and hence why we do 2 world ticks per one clock tick.
                 break
-                
+
+        # TODO: hold the observation int the buffer until rx_flag
         # Get most recent observation and viewer image
         self.observation = self._get_observation()
         self.observation_ds = self.downsample()
@@ -678,18 +677,18 @@ class CarlaOffloadEnv(gym.Env):
                         "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, 
                         "rl_steer":rl_steer, "rl_throttle":rl_throttle, "filter_steer":filter_steer, "filter_throttle":filter_throttle, 
                         "sim_time":time.clock(), "filter_applied": filter_applied, "action_none":(action is None)})
-        offloading_dict = rounded_dict({"probe_tu": self.probe_tu[0], "delta_tu":self.delta_tu[0], 
-                            "selected_action": self.energy_monitor.selected_action, "correct_action": self.energy_monitor.correct_action,
-                            "probe_latency": self.energy_monitor.probe_off_latency, "probe_energy": self.energy_monitor.probe_off_energy,
-                            "actual_latency": self.energy_monitor.actual_off_latency, "actual_energy": self.energy_monitor.actual_off_energy,
-                            "exp_latency": self.energy_monitor.exp_total_latency, "exp_energy": self.energy_monitor.exp_total_energy,
-                            "missed_deadline_flag": self.energy_monitor.missed_deadline_flag, "missed_deadlines": self.energy_monitor.missed_deadlines,
-                            "succ_interrupts": self.energy_monitor.succ_interrupts, "max_succ_interrupts": self.energy_monitor.max_succ_interrupts,
-                            "missed_offloads": self.energy_monitor.missed_offloads, "misguided_energy": self.energy_monitor.misguided_energy})
 
-        # print('-'*80)
-        # print(offloading_dict)
-        # print('-'*80)
+        offloading_dict = rounded_dict({"phi_est": self.channel_params['phi_est'], "rtt_est": self.channel_params['rtt_est'], "que_est": self.channel_params['que_est'], 
+                           "phi_true": self.channel_params['phi_true'], "rtt_true": self.channel_params['rtt_true'], "que_true": self.channel_params['que_true'],
+                           "delta_T": self.delta_T, "selected_action": self.offloading_manager.selected_action, "correct_action": self.offloading_manager.correct_action, 
+                           "est_latency": self.offloading_manager.est_off_latency, "est_energy": self.offloading_manager.est_off_energy,
+                           "true_latency": self.offloading_manager.true_off_latency, "true_energy": self.offloading_manager.true_off_energy,
+                           "exp_latency": self.offloading_manager.exp_off_latency, "exp_energy": self.offloading_manager.exp_off_energy, 
+                           "missed_deadline_flag": self.offloading_manager.missed_deadline_flag, "missed_deadlines": self.offloading_manager.missed_deadlines,
+                           "succ_interrupts": self.offloading_manager.succ_interrupts, "max_succ_interrupts": self.offloading_manager.max_succ_interrupts,
+                           "missed_offloads": self.offloading_manager.missed_offloads, "misguided_energy": self.offloading_manager.misguided_energy,
+                           "rx_flag": self.offloading_manager.rx_flag, "transit_flag": self.offloading_manager.transit_flag, "recover_flag": self.offloading_manager.recover_flag
+                           })
 
         return encoded_state, self.last_reward, self.terminal_state, env_dict, offloading_dict
 
