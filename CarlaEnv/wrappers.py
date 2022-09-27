@@ -10,6 +10,7 @@ import pygame
 import sys
 import onnx
 from onnx_tf.backend import prepare
+import numpy as np
 from numpy import (array, dot, arccos, clip)
 
 def print_transform(transform):
@@ -313,7 +314,14 @@ class SafetyFilter():
     def output_delta_T(self, control):
         # Based on the measurement of the xi and r, (maybe speed and other factors) - we can output the delta_T 
         # Should include some preprocessing to floor it to a multiplier
-        raise NotImplementedError
+
+        # delta_T LOGIC:
+        # It should be defined naturally as a positive int 
+        # if 0 or 1, then I have only one window or less to complete execution,  set the recover flag and execute locally for maximum robustness
+        # if any number > 1, I compare the current tx window (starts from 1) against it, and if current_Tx == delta-1 and it has not concluded processing yet, it means that next window when current_Tx == delta should be local execution regardless 
+        # raise NotImplementedError
+
+        return random.randint(1, 20)       # place holder function -> delta_T sampled from [1,20]
 
     def toggle_filtering(self):
         self.filtering = not self.filtering

@@ -27,7 +27,6 @@ fn_dict = {'avg': lambda x: average(x),
 
 class CarlaOffloadEnv(gym.Env):
     """
-
         Note that you may also need to add the following line to
         Unreal/CarlaUE4/Config/DefaultGame.ini to have a specific map included in the package:       
         +MapsToCook=(FilePath="/Game/Carla/Maps/Town07")
@@ -47,8 +46,8 @@ class CarlaOffloadEnv(gym.Env):
         """
             Initializes a gym-like environment that can be used to interact with CARLA.
 
-            Connects to a running CARLA enviromment (tested on version 0.9.5) and
-            spwans a lincoln mkz2017 passenger car with automatic transmission.
+            Connects to a running CARLA enviromment (tested on version 0.9.11) and
+            spwans an Audi passenger car with automatic transmission.
             
             This vehicle can be controlled using the step() function,
             taking an action that consists of [steering_angle, throttle].
@@ -67,7 +66,6 @@ class CarlaOffloadEnv(gym.Env):
         self.steer_diff_avg         = 0
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
-        self.position_multiplier    = params["pos_mul"]
         self.len_obs                = params["len_obs"]
         self.obs_step               = params["obs_step"]
         self.obs_start_idx          = params["obs_start_idx"]
@@ -232,7 +230,7 @@ class CarlaOffloadEnv(gym.Env):
         self.energy = 0.0
         self.off_latency = 0.0      # local execution latency if policy is local
         self.action = 0
-        self.delta_T = 1            # The shield's grace period (multiples of the time window)
+        self.delta_T = None            # Takes positive int values if shield
         self.channel_params = {'phi_true': 0, 'rtt_true': 0, 'que_true': 0, 'phi_est': 0, 'rtt_est': 0, 'que_est': 0}
 
         # Always start from the beginning
@@ -337,7 +335,7 @@ class CarlaOffloadEnv(gym.Env):
         self.track_completed   = False
         self.closed = False         # Set to True when ESC is pressed
         self.extra_info = []        # List of extra info shown on the HUD
-        self.observation = self.observation_buffer = None   # Last received observation
+        self.observation = self.observation_buffer = self.current_observation = None   # Last received observation
         self.viewer_image = self.viewer_image_buffer = None # Last received image to show in the viewer
         self.start_t = time.time()
         self.step_count = 0
@@ -378,6 +376,7 @@ class CarlaOffloadEnv(gym.Env):
         else:                                                   maneuver = "INVALID(%i)" % self.current_road_maneuver
 
         # Add metrics to HUD
+        # TODO: edit the local overheads according to the sublclasses of local execution
         self.extra_info.extend([
             "Reward: % 19.2f" % self.last_reward,
             "",
@@ -406,7 +405,7 @@ class CarlaOffloadEnv(gym.Env):
             "Selected Action:     % 1.0f"  % (self.offloading_manager.selected_action),
             "Correct Action:      % 1.0f"  % (self.offloading_manager.correct_action),
             "",
-            "Missed Deadlines:     %1.0f"  % (self.offloading_manager.missed_deadlines),
+            "Missed Windows:     %1.0f"  % (self.offloading_manager.missed_windows),
             "Max succ interrupts:  %1.0f"  % (self.offloading_manager.max_succ_interrupts),
             "Missed offloads:      %1.0f"  % (self.offloading_manager.missed_offloads)
         ])
@@ -481,7 +480,7 @@ class CarlaOffloadEnv(gym.Env):
         self.channel_params['rtt_true'] = self.rtt_sampler.sample(1)[0]
         self.channel_params['que_true'] = self.que_sampler.sample(1)[0]
         # Update network parameters if not in transit state
-        if ((not self.offloading_manager.transit_flag) and (not self.offloading_manager.recover_flag)) or self.rx_flag:           
+        if ((not self.offloading_manager.transit_flag) and (not self.offloading_manager.recover_flag)) or self.rx_flag or self.offloading_manager.selected_action == 0:           
             # Ego vehicle estimates parameters at window t based on the t-1 values 
             if len(self.phi_list) == self.buffer_size:
                 self.initialize = False
@@ -498,15 +497,7 @@ class CarlaOffloadEnv(gym.Env):
             self.phi_list.append(self.channel_params['phi_true'])
             self.rtt_list.append(self.channel_params['rtt_true'])
             self.que_list.append(self.channel_params['que_true'])
-
-        # TODO: I will need to play around with the parmaeters of rtt and phi and the window as well
-        # print(self.phi_list, self.rtt_list, self.que_list)
-
-        self.offloading_manager.certify_deadline()                  
-        if not self.offloading_manager.verify_combinations():
-            print("Local pipeline latency > deadline!")        
-            self.close()            
-
+                
         self.offloading_manager.determine_offloading_decision(self.channel_params, self.delta_T, self.initialize)
 
         # Basic Agents
@@ -517,7 +508,7 @@ class CarlaOffloadEnv(gym.Env):
             if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:           # shield transmission 
                 pass                                             # no new control outputs
             else:                                                # new control outputs
-                if self.offloading_manager.belay_mode and not self.offloading_manager.rx_flag: 
+                if self.offloading_manager.belaying and not self.offloading_manager.rx_flag:           # TODO: will have to expand on these to account for local execution overheads with belaying
                     pass
                 else:
                     self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
@@ -528,21 +519,21 @@ class CarlaOffloadEnv(gym.Env):
             if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:           # shield transmission
                 pass                                             # no new control outputs
             else:                                                # new control outputs
-                if self.offloading_manager.belay_mode and not self.offloading_manager.rx_flag:
+                if self.offloading_manager.belaying and not self.offloading_manager.rx_flag:
                     pass
                 else:
                     self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
                     self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
             if self.safety_filter is not None:
-                self.safety_filter.set_filter_inputs(self.xi, self.r, self.offloading_manager.transit_flag, self.offloading_manager.transit_window)          # shiled needs to take the input readings non the less
+                self.safety_filter.set_filter_inputs(self.xi, self.r)          # shield needs to take the input readings either way
                 self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
                 if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:
                     pass
                 else:
-                    if self.offloading_manager.belay_mode and not self.offloading_manager.rx_flag:
+                    if self.offloading_manager.belaying and not self.offloading_manager.rx_flag:
                         pass
                     else:
-                        self.delta_T = self.safety_filter.output_delta_T(self.vehicle.control)      # sample new delta_T for shield offloading operation
+                        self.delta_T = self.safety_filter.output_delta_T(self.vehicle.control)      # sample new delta_T 
                 if filter_applied:
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
@@ -579,10 +570,16 @@ class CarlaOffloadEnv(gym.Env):
                 self.world.tick()           # Based on carla documentation and previous SHieldNN implementation, the server FPS should be twice as much as the client FPS, and hence why we do 2 world ticks per one clock tick.
                 break
 
-        # TODO: hold the observation int the buffer until rx_flag
-        # Get most recent observation and viewer image
-        self.observation = self._get_observation()
-        self.observation_ds = self.downsample()
+        # Get most recent observation and viewer image (or hold if in transit/belay)
+        self.current_observation = self._get_observation()
+        if self.hold_det_img and (self.offloading_manager.transit_flag or self.offloading_manager.recover_flag or (self.offloading_manager.belaying and not self.offloading_manager.rx_flag)):
+            pass        # use observation from the last timewindow
+        else: 
+            self.observation = self.current_observation
+        if self.hold_vae_img:    
+            self.observation_ds = self.downsample(self.observation)
+        else:                      # continuous processing irrespective of detector holding
+            self.observation_ds = self.downsample(self.current_observation)
         self.viewer_image = self._get_viewer_image()
         encoded_state = self.encode_state_fn(self)      
 
@@ -684,7 +681,7 @@ class CarlaOffloadEnv(gym.Env):
                            "est_latency": self.offloading_manager.est_off_latency, "est_energy": self.offloading_manager.est_off_energy,
                            "true_latency": self.offloading_manager.true_off_latency, "true_energy": self.offloading_manager.true_off_energy,
                            "exp_latency": self.offloading_manager.exp_off_latency, "exp_energy": self.offloading_manager.exp_off_energy, 
-                           "missed_deadline_flag": self.offloading_manager.missed_deadline_flag, "missed_deadlines": self.offloading_manager.missed_deadlines,
+                           "missed_window_flag": self.offloading_manager.missed_window_flag, "missed_windows": self.offloading_manager.missed_windows,
                            "succ_interrupts": self.offloading_manager.succ_interrupts, "max_succ_interrupts": self.offloading_manager.max_succ_interrupts,
                            "missed_offloads": self.offloading_manager.missed_offloads, "misguided_energy": self.offloading_manager.misguided_energy,
                            "rx_flag": self.offloading_manager.rx_flag, "transit_flag": self.offloading_manager.transit_flag, "recover_flag": self.offloading_manager.recover_flag
@@ -730,11 +727,11 @@ class CarlaOffloadEnv(gym.Env):
         self.viewer_image_buffer = None
         return image
 
-    def downsample(self):
-        if (not self.observation.shape[0] <= 80) and (not self.observation.shape[1] <= 160):
-            frame = cv2.resize(self.observation, dsize=(160,80))   # downsample for pretrained encoder (i believe columns and row are flipped in cv2)
+    def downsample(self, observation):
+        if (not observation.shape[0] <= 80) and (not observation.shape[1] <= 160):
+            frame = cv2.resize(observation, dsize=(160,80))   # downsample for pretrained encoder (i believe columns and row are flipped in cv2)
         else:
-            frame = self.observation
+            frame = observation
         return frame
 
     def _on_collision(self, event):

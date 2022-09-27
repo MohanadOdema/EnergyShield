@@ -85,7 +85,7 @@ def train(params, start_carla=True, restart=False):
     else:
         raise ValueError("{} is Unidentified resolution for observation frame.".format(params['observation_dims']))
 
-    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'] +"_"+ params['arch'] +"_"+ params['offload_policy']+"_"+params['offload_position']+"_Belay_"+str(params['belay_mode']), params['HW']+"_"+str(params['deadline']))
+    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'] +"_"+ params['arch'] +"_"+ params['offload_policy']+"_"+params['offload_position'], params['HW']+"_"+str(params['deadline']))
 
     # Set seeds
     if isinstance(seed, int):
@@ -193,7 +193,7 @@ def train(params, start_carla=True, restart=False):
     valid_data_path = os.path.join(subdirs_path, "valid_data.csv")
 
     initial_row = ['episode_idx', 'reward','obstacle_hit', 'curb_hit', 'dist_traveled', 'dist_to_obstacle', 'avg_speed', 
-                    'avg_latency', 'avg_energy', 'missed_deadlines', 'max_succ_interrupts', 'missed_offloads', 'misguided_energy']
+                    'avg_latency', 'avg_energy', 'missed_windows', 'max_succ_interrupts', 'missed_offloads', 'misguided_energy']
     if not os.path.exists(train_data_path):
         with open(train_data_path, 'a', newline='') as fd:
             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -367,7 +367,7 @@ def train(params, start_carla=True, restart=False):
                     exp_latency.append(round(offloading_info["exp_latency"], 3))
                     exp_energy.append(round(offloading_info["exp_energy"], 3))
                     delta_T.append(offloading_info["delta_T"])
-                    miss_flag.append(offloading_info["missed_deadline_flag"])
+                    miss_flag.append(offloading_info["missed_window_flag"])
                     rx_flag.append(offloading_info["rx_flag"])
                     transit_flag.append(offloading_info["transit_flag"])
                     recover_flag.append(offloading_info["recover_flag"])
@@ -450,7 +450,7 @@ def train(params, start_carla=True, restart=False):
                     video_recorder.release()
                 if (env.distance_traveled > 0.0):
                     data_row =  [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3),
-                                np.mean(exp_latency), np.mean(exp_energy), env.offloading_manager.missed_deadlines, env.offloading_manager.max_succ_interrupts, env.offloading_manager.missed_offloads, env.offloading_manager.misguided_energy]
+                                np.mean(exp_latency), np.mean(exp_energy), env.offloading_manager.missed_windows, env.offloading_manager.max_succ_interrupts, env.offloading_manager.missed_offloads, env.offloading_manager.misguided_energy]
                     if test:
                         with open(valid_data_path, 'a', newline='') as fd:
                             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -503,6 +503,7 @@ if __name__ == "__main__":
     parser.add_argument("--fps", type=int, default=30, help="Set this to the FPS of the environment")
     parser.add_argument("--action_smoothing", type=float, default=0.0, help="Action smoothing factor")
     parser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
+    parser.add_argument("--time_window", type=int, default=20, help="The discretized time window duration in ms")
 
     # Training parameters
     parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name") #choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'casc_agent4', 'BasicAgent', 'BehaviorAgent'])
@@ -518,25 +519,29 @@ if __name__ == "__main__":
     parser.add_argument("-obstacle", action="store_true", default=False, help="Add obstacles")
     parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
     parser.add_argument("--track", type=int, default=1, help="Track Number")
-    parser.add_argument("--pos_mul", type=int, default=2, help='obstacle position multiplier')
     parser.add_argument("-test", action="store_true", default=False, help="test")
 
     parser.add_argument("-restart", action="store_true",
                         help="If True, delete existing model in models/model_name before starting training")
 
     # AV pipeline Offloading
+    # TODO: Write a description for the different offloading policies
     parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'ResNet152', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet152')
     parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', '0.5_direct', '0.25_direct', '0.11_direct', 'bottleneck'], default='direct')
-    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'strictShield', 'energyShield', 'looseShield'], default='offload')    
+    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield'], default='offload')    
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
-    parser.add_argument("--deadline", type=int, help="time window", default=100)
+    parser.add_argument("--deadline", type=int, help="dealdine in ms", default=20)                    # Single time window is 20 ms
     parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['80p', '480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='80p')
     parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='WiFi')
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=20)#13.62)    
     parser.add_argument("--noise_scale", type=float, default=5, help="gaussian noise scale/variance")
-    parser.add_argument("--belay_mode", action='store_true', default=False, help="belay till delta_T expires to resume processing" )
+    parser.add_argument("--off_belay", action='store_true', default=False, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )        
+    parser.add_argument("--local_belay", action='store_true', default=False, help="belay local execution until the last execution window of the dealdine")
+    parser.add_argument("--local_early", action='store_true', default=False, help="instantly perform local execution at the first attainable window of the dealdine")
+    parser.add_argument("-hold_det_img", action='store_true', default=False, help="hold detector image after transmission/belay initiated")
+    parser.add_argument("-hold_vae_img", action='store_true', default=False, help="hold VAE image after transmission/belay initiated")
 
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
