@@ -66,11 +66,6 @@ class CarlaOffloadEnv(gym.Env):
         self.steer_diff_avg         = 0
         self.apply_filter_counter   = 0
         self.steer_cap              = 0.6428
-        self.len_obs                = params["len_obs"]
-        self.obs_step               = params["obs_step"]
-        self.obs_start_idx          = params["obs_start_idx"]
-        self.display_off            = params["display_off"]
-        self.buffer_size            = params["buffer_size"]
         self.agent                  = None
         self.model_name             = model_name
         self.display                = None
@@ -78,6 +73,13 @@ class CarlaOffloadEnv(gym.Env):
         self.rtt_list               = deque()
         self.que_list               = deque()
         self.estimation_fn          = params["estimation_fn"]
+        self.len_obs                = params["len_obs"]
+        self.obs_step               = params["obs_step"]
+        self.obs_start_idx          = params["obs_start_idx"]
+        self.display_off            = params["display_off"]
+        self.buffer_size            = params["buffer_size"]
+        self.hold_det_img           = params["hold_det_img"]
+        self.hold_vae_img           = params["hold_vae_img"]
 
         self.offloading_manager = OffloadingManager(params)
         self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
@@ -534,6 +536,7 @@ class CarlaOffloadEnv(gym.Env):
                         pass
                     else:
                         self.delta_T = self.safety_filter.output_delta_T(self.vehicle.control)      # sample new delta_T 
+                        print(f"delta_T: {self.delta_T} windows")
                 if filter_applied:
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter

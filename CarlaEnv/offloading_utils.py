@@ -118,7 +118,7 @@ class OffloadingManager():
         self.reset()
 
     def reset(self):
-        self.end_session_flag       = False     # The overall deadline
+        self.end_tx_flag       = False     # The overall deadline
         self.missed_window_flag     = False
         self.missed_deadlines       = 0
         self.missed_windows         = 0         # Total missed_windows or fail-safe - calculated on a one-window granularity        
@@ -144,11 +144,11 @@ class OffloadingManager():
     def determine_offloading_decision(self, channel_params, delta_T=None, initialize=False):
         self.delta_T = delta_T if delta_T is not None else self.disc_deadline
         self.rx_flag = False                                       # reset every time window
-        if self.transit_flag and not self.end_session_flag:        # This is only for the offloading actions
+        if self.transit_flag and not self.end_tx_flag:             # This is only for the offloading actions
             self.transit_window += 1 
             self.true_off_latency, self.true_off_energy = self.update(channel_params['phi_true'], channel_params['rtt_true'], channel_params['que_true'])
-        elif self.recover_flag:
-            self.transit_window += 1
+        elif self.recover_flag:             # TODO: check if recovery window processes the current input or the one already uploaded
+            self.transit_window += 1 
             assert self.transit_window == self.delta_T
             self.true_off_latency, self.true_off_energy = self.update(channel_params['phi_true'], channel_params['rtt_true'], channel_params['que_true']) # just for comparison
             self.recover_flag = False
@@ -165,6 +165,7 @@ class OffloadingManager():
             return
         else:
             self.missed_window_flag = False
+            self.end_tx_flag = False
             self.transit_window = 1 
             self.rem_size = 0
             self.true_off_latency, self.true_off_energy = self.evaluate(channel_params['phi_true'], channel_params['rtt_true'], channel_params['que_true'])     # true offloading estimates for decision making
@@ -182,7 +183,7 @@ class OffloadingManager():
 
     def update(self, phi, rtt, que):        
         rem_off_energy = 0                                              # unless current_transition == 0
-        self.current_tx_latency, self.current_tx_energy = self.offload_overheads(phi, continuing_upload=True)
+        self.current_tx_latency, self.current_tx_energy = self.offload_overheads(phi, continuing_upload=True)  
         self.current_rtt1_latency, self.current_rtt2_latency, self.current_que_latency = 0.5*rtt, 0.5*rtt, que
         if self.current_transition == 0:
             rem_off_latency = self.current_tx_latency + rtt + que        # networks parameters changed for new window
@@ -233,13 +234,13 @@ class OffloadingManager():
                 violation_breakdown()               
                 if self.transit_window == (self.delta_T - 1) and (self.offload_policy == 'Shield' or 'failsafe' in self.offload_policy):  # policy with recovery window at last acceptable window        
                     self.transit_flag = False
-                    self.recover_flag = True                          # TODO: need to think whether I need to suspend the offloading decisions
+                    self.recover_flag = True                         
                 elif self.transit_window < self.delta_T:
                     self.transit_flag = True
                 elif self.transit_window == self.delta_T:             # full deadline passed and still no response
                     self.transit_flag = True
-                    self.end_session_flag = True
-                    # self.missed_deadlines += 1                      # This needs to account for whether the results were received in the last window or not
+                    self.end_tx_flag = True
+                    # self.missed_deadlines += 1                      # TODO: implement on whether the results were received in the last window
                 else:
                     raise RuntimeError("Incorrect transit window #")
                 self.succ_interrupts += 1
@@ -247,7 +248,7 @@ class OffloadingManager():
                 self.rx_flag = True                                                                
                 if self.off_belay and (self.transit_window < self.delta_T):     # stay idle after rx till delta_T expires                   # I already computed so I do not need to recouver before delta_T expires like transit
                     self.belaying = True
-                if self.transit_window == 1 and self.true_off_energy > self.full_local_energy:        # Wrong energy decision / condition on transit_window so as not to recount wrong decisions
+                if self.transit_window == 1 and (self.full_local_energy < self.true_off_energy):        # Wrong energy decision / condition on transit_window so as not to recount wrong decisions
                     self.misguided_energy += 1
                 self.missed_window_flag = 0
                 self.transit_flag = False
@@ -255,17 +256,17 @@ class OffloadingManager():
         else:
             self.transit_flag = False
             self.succ_interrupts = 0
-            if self.transit_window == 1 and self.full_local_energy > self.true_off_energy:      # if better energy from offload (this is without conteextual safety)
+            if self.transit_window == 1 and self.correct_action == 1:     # if better energy from offload (this is without contextual safety)
                 self.missed_offloads += 1 
             # Execution after recovery
             elif self.rx_flag:          # This is a recovery window - otherwise manage_timings is only accessed in the first transit window for local_execution
-                assert self.transit_flag == self.delta_T              
+                assert self.transit_window == self.delta_T              
             # Local Execution Behavior - either in explicit local policies or adaptive
-            if self.local_early:                   
+            if self.local_early and not self.rx_flag:    # not rx_flag to ensure executing when no recovery cond.               
                 self.rx_flag = True
                 self.belaying = True
                 assert self.transit_window == 1
-            elif self.local_belay:
+            elif self.local_belay and not self.rx_flag:
                 self.rx_flag = False
                 self.belaying = True 
                 self.exp_off_latency, self.exp_off_energy = 0, 0   
@@ -283,17 +284,21 @@ class OffloadingManager():
 
     def violation_breakdown(channel_params):
         if self.current_tx_latency > self.time_window:
+            current_tx_size = self.input_size if self.transit_window == 1 else self.rem_size
             self.current_transition = 0
             init_latency = self.head_latency if self.transit_window == 1 else 0
-            self.rem_size = self.input_size - ((channel_params['phi_true']*(self.time_window-init_latency))/1000)     # Mbit: (Mbps*ms/1000)
+            self.rem_size = current_tx_size - ((channel_params['phi_true']*(self.time_window-init_latency))/1000)     # Mbit: (Mbps*ms/1000)
         elif self.current_tx_latency + self.current_rtt1_latency > self.time_window:
             self.current_transition = 1
+            self.rem_size = 0
             self.rem_val = self.current_tx_latency + self.current_rtt1_latency - self.time_window       # The rolling-over latency
         elif self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency > self.time_window:
             self.current_transition = 2
+            self.rem_size = 0
             self.rem_val = self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency - self.time_window 
         elif self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency + self.current_rtt2_latency > self.time_window:
             self.current_transition = 3
+            self.rem_size = 0
             self.rem_val = self.current_tx_latency + self.current_rtt1_latency + self.current_que_latency + self.current_rtt2_latency - self.time_window 
         else:
             raise RuntimeError("There was no deadline violation as far as the breakdown is concerned!")
