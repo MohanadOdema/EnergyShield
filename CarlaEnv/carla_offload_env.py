@@ -1,6 +1,8 @@
 import os
 import subprocess
 import time
+import tensorflow
+import tensorflow.compat.v1 as tf
 
 import carla
 import random
@@ -69,9 +71,6 @@ class CarlaOffloadEnv(gym.Env):
         self.agent                  = None
         self.model_name             = model_name
         self.display                = None
-        self.phi_list               = deque()
-        self.rtt_list               = deque()
-        self.que_list               = deque()
         self.estimation_fn          = params["estimation_fn"]
         self.len_obs                = params["len_obs"]
         self.obs_step               = params["obs_step"]
@@ -80,6 +79,7 @@ class CarlaOffloadEnv(gym.Env):
         self.buffer_size            = params["buffer_size"]
         self.hold_det_img           = params["hold_det_img"]
         self.hold_vae_img           = params["hold_vae_img"]
+        self.cont_control           = params["cont_control"]
 
         self.offloading_manager = OffloadingManager(params)
         self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
@@ -89,9 +89,6 @@ class CarlaOffloadEnv(gym.Env):
             self.rtt_sampler = RayleighSampler(params['estimation_fn'], params['rtt_scale'], params['rtt_shift'])
         self.que_sampler = NetworkQueueModel(params['estimation_fn'], params['qsize'], params['arate'], params['srate'])
 
-        if apply_filter:
-            self.safety_filter = SafetyFilter()
-
         # Initialize pygame for visualization
         pygame.init()
         pygame.font.init()
@@ -99,7 +96,7 @@ class CarlaOffloadEnv(gym.Env):
         if obs_res is None:
             out_width, out_height = width, height
         else:
-            out_width, out_height = obs_res     # OD: set to (160,80) default from the calling function
+            out_width, out_height = obs_res   
         if not self.display_off:
             self.display = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.clock = pygame.time.Clock()
@@ -171,7 +168,7 @@ class CarlaOffloadEnv(gym.Env):
                 raise ValueError("Not supported road length!")
 
             self.destination = self.route_waypoints[-1][0].transform.location
-            # self.destination = carla.Location(x=407.009613, y=-229.571365, z=0)       # actual dimensions of last element in self.route_waypoints
+            # self.destination = carla.Location(x=407.009613, y=-229.571365, z=0)       # actual dimensions of last element in self.route_waypoints (medium)
 
             self.current_waypoint_index = 0
             self.checkpoint_waypoint_index = 0
@@ -228,11 +225,14 @@ class CarlaOffloadEnv(gym.Env):
         self.vehicle.control.throttle = float(0.0)
         #self.vehicle.control.brake = float(0.0)
         self.vehicle.tick()
-
+        self.phi_list = deque()
+        self.rtt_list = deque()
+        self.que_list = deque()
         self.energy = 0.0
-        self.off_latency = 0.0      # local execution latency if policy is local
+        self.off_latency = 0.0         # local execution latency if policy is local
         self.action = 0
         self.delta_T = None            # Takes positive int values if shield
+        self.missed_controls = 0
         self.channel_params = {'phi_true': 0, 'rtt_true': 0, 'que_true': 0, 'phi_est': 0, 'rtt_est': 0, 'que_est': 0}
 
         # Always start from the beginning
@@ -249,7 +249,7 @@ class CarlaOffloadEnv(gym.Env):
         self.vehicle.set_simulate_physics(True)
         self.obstacle_percentage = 1.0
         gaussian = self.gaussian
-        gasussian_var = 1.15
+        gasussian_var = 1.15   # 1.15 originally
         if is_training:
             self.obstacle_percentage = 1.0
 
@@ -266,15 +266,13 @@ class CarlaOffloadEnv(gym.Env):
                 if self.track == 1:
                     spawn_idx = random.randint(self.obs_start_idx-10, self.obs_start_idx+10)
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
-                spawn_transform.rotation = carla.Rotation(yaw=spawn_transform.rotation.yaw-270)                 # 180 for pedestrians; 270 for prop gonme
+                spawn_transform.rotation = carla.Rotation(yaw=spawn_transform.rotation.yaw-270)                 # 180 for pedestrians; 270 for prop gonmes
                 if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')):
                     # displace object out of the center of the lane 
                     spawn_transform.location.x = spawn_transform.location.x + 1.2
                 if (not is_training) and gaussian:
                     spawn_transform.location.x = spawn_transform.location.x + np.random.normal(0,gasussian_var,1)[0]
                     spawn_transform.location.y = spawn_transform.location.y + np.random.normal(0,gasussian_var,1)[0]
-                # if self.track == 1:
-                #     len_obs = 1
                 current_idx  = 0
                 # step_size between obstacles
                 if self.obs_step <= 0:      # uniform
@@ -287,7 +285,7 @@ class CarlaOffloadEnv(gym.Env):
                         self.obstacles.append(Obstacle(self.world, spawn_transform))
                         ret_val = self.obstacles[i].is_valid()      
                         while ret_val is None:              
-                            print("try again")          # I go to this loop for the second obstacle; sometimes obstacle spawning is not achieved properly in carla simulator
+                            print("try again")          
                             spawn_idx = random.randint(obs_step_size-10, obs_step_size+10)
                             if (spawn_idx + current_idx)  >= len(self.route_waypoints):
                                 continue
@@ -324,7 +322,6 @@ class CarlaOffloadEnv(gym.Env):
                 print("len obstacles", len(self.obstacles))
                 self.obstacle_counter = 0
 
-        # TODO: check why do we have this code?
         if self.synchronous:
             ticks = 0
             while ticks < self.fps * 2:
@@ -378,36 +375,40 @@ class CarlaOffloadEnv(gym.Env):
         else:                                                   maneuver = "INVALID(%i)" % self.current_road_maneuver
 
         # Add metrics to HUD
-        # TODO: edit the local overheads according to the sublclasses of local execution
         self.extra_info.extend([
             "Reward: % 19.2f" % self.last_reward,
             "",
             # "Maneuver:        % 11s"       % maneuver,
-            "Laps completed:    % 7.2f %%" % (self.laps_completed * 100.0),
+            "Route completed:    % 7.2f %%" % (self.laps_completed * 100.0),
             # "Distance traveled: % 7d m"    % self.distance_traveled,
-            # "Center deviance:   % 7.2f m"  % self.distance_from_center,
-            # "Avg center dev:    % 7.2f m"  % (self.center_lane_deviation / self.step_count),
-            "Avg speed:      % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
+            "Center deviance:    % 7.2f m"  % self.distance_from_center,
+            "Dist to Obs:        % 7.2f m"  % self.distance_to_obstacle,
+            # "Avg center dev:     % 7.2f m"  % (self.center_lane_deviation / self.step_count),
+            # "Avg speed:       % 7.2f km/h"  % (3.6 * self.speed_accum / self.step_count),
+            "Safety Filter:       %s"        % 'Active' if self.safety_filter is not None else self.safety_filter, 
             "",
-            # "Architecture:    %s        "  % (self.offloading_manager.arch),
-            "Policy (DL): %s (%1.0f ms)" % (self.offloading_manager.offload_policy, self.offloading_manager.deadline),
-            "delta_T:                 %1.0f" % (self.delta_T),
-            "transit_flag:      %s"            % (self.offloading_manager.transit_flag),
-            "recover_flag:      %s"            % (self.offloading_manager.recover_flag),
+            "Policy (DL):   %s (%1.0f ms)" % (self.offloading_manager.offload_policy, self.offloading_manager.deadline),
+            "delta_T:             %1.0f" % (self.offloading_manager.delta_T),
+            "transit_window:      %s"            % (self.offloading_manager.transit_window),
+            "rx_flag?             %s"            % (self.offloading_manager.rx_flag),
+            "transit?             %s"            % (self.offloading_manager.transit_flag and not self.offloading_manager.end_tx_flag),
+            "recover?             %s"            % (self.offloading_manager.recover_flag),
+            "belayin?             %s"            % (self.offloading_manager.belaying),
             "",
-            "Phi True:          %7.2f Mbps"    % (self.channel_params['phi_true']),
-            "RTT True:          %7.2f ms"      % (self.channel_params['rtt_true']),
-            "que True:          %7.2f ms"      % (self.channel_params['que_true']),
+            "Phi True:         %7.2f Mbps"    % (self.channel_params['phi_true']),
+            # "RTT True:         %7.2f ms"      % (self.channel_params['rtt_true']),
+            "que True:         %7.2f ms"      % (self.channel_params['que_true']),
             "",
             "Local Ergy:        %7.2f mJ"  % (self.offloading_manager.full_local_energy),
-            "Exp Ergy:          %7.2f mJ"  % (self.offloading_manager.exp_off_energy),
-            "Local Latency:     %7.2f ms"  % (self.offloading_manager.full_local_latency),
-            "Exp Latency:       %7.2f ms"  % (self.offloading_manager.exp_off_latency),
+            "Exper Ergy:        %7.2f mJ"  % (self.offloading_manager.exp_off_energy),
+            # "Local Latency:     %7.2f ms"  % (self.offloading_manager.full_local_latency),
+            "Exper Latency:     %7.2f ms"  % (self.offloading_manager.exp_off_latency),
             "",
             "Selected Action:     % 1.0f"  % (self.offloading_manager.selected_action),
             "Correct Action:      % 1.0f"  % (self.offloading_manager.correct_action),
             "",
-            "Missed Windows:     %1.0f"  % (self.offloading_manager.missed_windows),
+            "Missed Deadlines:     %1.0f"  % (self.offloading_manager.missed_deadlines),
+            "Missed Windows:       %1.0f"  % (self.offloading_manager.missed_windows),
             "Max succ interrupts:  %1.0f"  % (self.offloading_manager.max_succ_interrupts),
             "Missed offloads:      %1.0f"  % (self.offloading_manager.missed_offloads)
         ])
@@ -416,10 +417,10 @@ class CarlaOffloadEnv(gym.Env):
         self.display.blit(pygame.surfarray.make_surface(self.viewer_image.swapaxes(0, 1)), (0, 0))
 
         # Superimpose current observation into top-right corner
-        obs_h, obs_w = self.observation_ds.shape[:2]
+        obs_h, obs_w = self.observation_display.shape[:2]
         view_h, view_w = self.viewer_image.shape[:2]
         pos = (view_w - obs_w - 10, 10)
-        self.display.blit(pygame.surfarray.make_surface(self.observation_ds.swapaxes(0, 1)), pos)
+        self.display.blit(pygame.surfarray.make_surface(self.observation_display.swapaxes(0, 1)), pos)
 
         # Render HUD
         self.hud.render(self.display, extra_info=self.extra_info)
@@ -434,7 +435,7 @@ class CarlaOffloadEnv(gym.Env):
             # Turn display surface into rgb_array
             return np.array(pygame.surfarray.array3d(self.display), dtype=np.uint8).transpose([1, 0, 2])
         elif mode == "state_pixels":
-            return self.observation_ds
+            return self.observation_display
     
     def obstacle_state_estimator(self, player_transform, obstacle_location, player_speed):
         r_v = np.array([player_transform.location.x, player_transform.location.y]) - np.array(
@@ -444,7 +445,7 @@ class CarlaOffloadEnv(gym.Env):
         self.xi = math.atan2(player_transform.location.y- obstacle_location.y, player_transform.location.x- obstacle_location.x) - psi
         self.xi = math.atan2(math.sin(self.xi), math.cos(self.xi))
 
-    def step(self, action):
+    def step(self, action):         #TODO FIX: I need to have the channel estimates after the tick and before holding the images
         self.steer_diff = 0.0
         
         if self.closed:
@@ -477,12 +478,57 @@ class CarlaOffloadEnv(gym.Env):
         xi = self.xi
         r = self.r
 
+        # Basic Agents
+        if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')) and action is not None:
+            control = self.agent.run_step()
+            steer = control.steer
+            throttle = control.throttle
+            if self.offloading_manager.rx_flag or self.cont_control:
+                self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
+                self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
+        # RL Agents
+        elif action is not None:
+            steer, throttle = [float(a) for a in action]   
+            if self.offloading_manager.rx_flag or self.cont_control:
+                self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
+                self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
+            else:
+                self.missed_controls += 1
+            if self.safety_filter is not None:
+                self.safety_filter.set_filter_inputs(self.xi, self.r)          # shield needs to take the input readings either way
+                self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
+                if filter_applied:
+                    self.apply_filter_counter+=1
+                    self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
+            if 'Shield' in self.offloading_manager.offload_policy and (self.offloading_manager.rx_flag or self.offloading_manager.belaying):         # either when you receive the output and state. 
+                if self.offloading_manager.rx_flag:                          # TODO: Verify when you get the table
+                    self.delta_T = output_delta_T(self.vehicle.control)      # sample new delta_T 
+                    print(f"delta_T: {self.delta_T} windows")
+
+        rl_steer = self.vehicle.control.steer
+        rl_throttle = self.vehicle.control.throttle
+        filter_steer = self.vehicle.control.steer
+        filter_throttle = self.vehicle.control.throttle 
+
+        #filter_data = {rl_steer, rl_throttle, filter_steer, filter_throttle, xi, r}
+        # Tick game
+        self.hud.tick(self.world, self.clock)
+        self.world.tick()
+
+        # wait_for_tick should only be used in asynchronous mode (see https://github.com/carla-simulator/carla/issues/3283)
+
+        if self.synchronous:
+            self.clock.tick()
+            while True:
+                self.world.tick()           # From carla documentation/scripts, the server FPS was as twice as much as the client FPS
+                break
+
         # Sample the environment true values 
         self.channel_params['phi_true'] = self.phi_sampler.sample(1)[0]
         self.channel_params['rtt_true'] = self.rtt_sampler.sample(1)[0]
         self.channel_params['que_true'] = self.que_sampler.sample(1)[0]
         # Update network parameters if not in transit state
-        if ((not self.offloading_manager.transit_flag) and (not self.offloading_manager.recover_flag)) or self.rx_flag or self.offloading_manager.selected_action == 0:           
+        if ((not self.offloading_manager.transit_flag) and (not self.offloading_manager.recover_flag)) or self.offloading_manager.rx_flag or self.offloading_manager.selected_action == 0:           
             # Ego vehicle estimates parameters at window t based on the t-1 values 
             if len(self.phi_list) == self.buffer_size:
                 self.initialize = False
@@ -502,83 +548,13 @@ class CarlaOffloadEnv(gym.Env):
                 
         self.offloading_manager.determine_offloading_decision(self.channel_params, self.delta_T, self.initialize)
 
-        # Basic Agents
-        if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')) and action is not None:
-            control = self.agent.run_step()
-            steer = control.steer
-            throttle = control.throttle
-            if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:           # shield transmission 
-                pass                                             # no new control outputs
-            else:                                                # new control outputs
-                if self.offloading_manager.belaying and not self.offloading_manager.rx_flag:           # TODO: will have to expand on these to account for local execution overheads with belaying
-                    pass
-                else:
-                    self.vehicle.control.steer = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
-                    self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
-        # RL Agents
-        elif action is not None:
-            steer, throttle = [float(a) for a in action]        
-            if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:           # shield transmission
-                pass                                             # no new control outputs
-            else:                                                # new control outputs
-                if self.offloading_manager.belaying and not self.offloading_manager.rx_flag:
-                    pass
-                else:
-                    self.vehicle.control.steer    = self.vehicle.control.steer * self.action_smoothing + steer * (1.0-self.action_smoothing)
-                    self.vehicle.control.throttle = self.vehicle.control.throttle * self.action_smoothing + throttle * (1.0-self.action_smoothing)
-            if self.safety_filter is not None:
-                self.safety_filter.set_filter_inputs(self.xi, self.r)          # shield needs to take the input readings either way
-                self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
-                if self.offloading_manager.transit_flag or self.offloading_manager.recover_flag:
-                    pass
-                else:
-                    if self.offloading_manager.belaying and not self.offloading_manager.rx_flag:
-                        pass
-                    else:
-                        self.delta_T = self.safety_filter.output_delta_T(self.vehicle.control)      # sample new delta_T 
-                        print(f"delta_T: {self.delta_T} windows")
-                if filter_applied:
-                    self.apply_filter_counter+=1
-                    self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
-
-        rl_steer = self.vehicle.control.steer
-        rl_throttle = self.vehicle.control.throttle
-        filter_steer = self.vehicle.control.steer
-        filter_throttle = self.vehicle.control.throttle 
-
-        #filter_data = {rl_steer, rl_throttle, filter_steer, filter_throttle, xi, r}
-        # Tick game
-        self.hud.tick(self.world, self.clock)
-        self.world.tick()
-
-        # ORIGINAL: FOR SOME REASON IMPLEMENTED LIKE SUCH and SLOWS THINGS DOWN
-        # I think it is wrong --> wait_for_tick should be used in asynchronous mode (see https://github.com/carla-simulator/carla/issues/3283)
-
-        # Synchronous update logic
-        # if self.synchronous:
-        #     self.clock.tick()
-        #     while True:
-        #         try:
-        #             # self.world.tick()
-        #             self.world.wait_for_tick(seconds=1.0/self.fps + 0.1)
-        #             break
-        #         except:
-        #             # Timeouts happen occasionally for some reason, however, they seem to be fine to ignore
-        #             self.world.tick()
-        #         break
-
-        if self.synchronous:
-            self.clock.tick()
-            while True:
-                self.world.tick()           # Based on carla documentation and previous SHieldNN implementation, the server FPS should be twice as much as the client FPS, and hence why we do 2 world ticks per one clock tick.
-                break
-
         # Get most recent observation and viewer image (or hold if in transit/belay)
         self.current_observation = self._get_observation()
-        if self.hold_det_img and (self.offloading_manager.transit_flag or self.offloading_manager.recover_flag or (self.offloading_manager.belaying and not self.offloading_manager.rx_flag)):
-            pass        # use observation from the last timewindow
+        if self.hold_det_img and not (self.offloading_manager.transit_window == 1 or (self.offloading_manager.process_current and self.offloading_manager.rx_flag)):
+            pass
         else: 
-            self.observation = self.current_observation
+            self.observation = self.current_observation        # use observation from the last timewindow
+        self.observation_display = self.downsample(self.observation)
         if self.hold_vae_img:    
             self.observation_ds = self.downsample(self.observation)
         else:                      # continuous processing irrespective of detector holding
@@ -609,9 +585,9 @@ class CarlaOffloadEnv(gym.Env):
         if self.obstacle_en:
             r_v = np.array([self.vehicle.get_transform().location.x, self.vehicle.get_transform().location.y]) - np.array(
                 [self.obstacles[self.obstacle_counter].get_transform().location.x, self.obstacles[self.obstacle_counter].get_transform().location.y])
-            distance_to_obstacle = np.linalg.norm(r_v)
-            if distance_to_obstacle < self.min_distance_to_obstacle:
-                self.min_distance_to_obstacle = distance_to_obstacle
+            self.distance_to_obstacle = np.linalg.norm(r_v)
+            if self.distance_to_obstacle < self.min_distance_to_obstacle:
+                self.min_distance_to_obstacle = self.distance_to_obstacle
             # fill in obstacle plot data
             obstacle_x = self.obstacles[self.obstacle_counter].get_transform().location.x
             obstacle_y = self.obstacles[self.obstacle_counter].get_transform().location.y
@@ -680,14 +656,16 @@ class CarlaOffloadEnv(gym.Env):
 
         offloading_dict = rounded_dict({"phi_est": self.channel_params['phi_est'], "rtt_est": self.channel_params['rtt_est'], "que_est": self.channel_params['que_est'], 
                            "phi_true": self.channel_params['phi_true'], "rtt_true": self.channel_params['rtt_true'], "que_true": self.channel_params['que_true'],
-                           "delta_T": self.delta_T, "selected_action": self.offloading_manager.selected_action, "correct_action": self.offloading_manager.correct_action, 
+                           "delta_T": self.offloading_manager.delta_T, "selected_action": self.offloading_manager.selected_action, "correct_action": self.offloading_manager.correct_action, 
                            "est_latency": self.offloading_manager.est_off_latency, "est_energy": self.offloading_manager.est_off_energy,
                            "true_latency": self.offloading_manager.true_off_latency, "true_energy": self.offloading_manager.true_off_energy,
                            "exp_latency": self.offloading_manager.exp_off_latency, "exp_energy": self.offloading_manager.exp_off_energy, 
-                           "missed_window_flag": self.offloading_manager.missed_window_flag, "missed_windows": self.offloading_manager.missed_windows,
+                           "missed_window_flag": self.offloading_manager.missed_window_flag, "missed_windows": self.offloading_manager.missed_windows, "missed_deadlines": self.offloading_manager.missed_deadlines,
                            "succ_interrupts": self.offloading_manager.succ_interrupts, "max_succ_interrupts": self.offloading_manager.max_succ_interrupts,
-                           "missed_offloads": self.offloading_manager.missed_offloads, "misguided_energy": self.offloading_manager.misguided_energy,
-                           "rx_flag": self.offloading_manager.rx_flag, "transit_flag": self.offloading_manager.transit_flag, "recover_flag": self.offloading_manager.recover_flag
+                           "missed_offloads": self.offloading_manager.missed_offloads, "misguided_energy": self.offloading_manager.misguided_energy, "missed_controls": self.missed_controls,
+                           "rx_flag": self.offloading_manager.rx_flag, "transit_flag": self.offloading_manager.transit_flag, "recover_flag": self.offloading_manager.recover_flag,
+                           "belaying": self.offloading_manager.belaying, "transit_window": self.offloading_manager.transit_window, "rem_size":self.offloading_manager.rem_size, 
+                           "rem_val": self.offloading_manager.rem_val, "current_transition": self.offloading_manager.current_transition, "process_current": self.offloading_manager.process_current
                            })
 
         return encoded_state, self.last_reward, self.terminal_state, env_dict, offloading_dict

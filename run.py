@@ -13,14 +13,15 @@ import numpy as np
 import tensorflow as tf
 import csv
 import matplotlib.pyplot as plt
+import gym
 
 from vae_common import create_encode_state_fn, load_vae
 from ppo import PPO
 from ppo_cascade import PPO_CASCADE
 from reward_functions import reward_functions
-# from run_eval import run_eval
 from utils import VideoRecorder, compute_gae, plot_trajectories, plot_energy_stats, dir_manager
 from vae.models import ConvVAE, MlpVAE
+from wrappers import SafetyFilter
 
 # Object Detection functionalities
 from detector import Detector, mask_detection_boxes
@@ -32,6 +33,7 @@ from object_detection.builders import model_builder
 from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
 # from CarlaEnv.agents.navigation import basic_agent, behavior_agent
 
+# TODO: this needs to be installed as part of the docker and changed path
 PATH_TO_LABELS = '/home/mohanadodema/TensorFlow/models/research/object_detection/data/mscoco_label_map.pbtxt'
 
 def train(params, start_carla=True, restart=False):
@@ -85,7 +87,19 @@ def train(params, start_carla=True, restart=False):
     else:
         raise ValueError("{} is Unidentified resolution for observation frame.".format(params['observation_dims']))
 
-    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'] +"_"+ params['arch'] +"_"+ params['offload_policy']+"_"+params['offload_position'], params['HW']+"_"+str(params['deadline']))
+    # For naming purposes
+    if params['offload_policy'] == 'local' and params['local_belay']:       
+        sup_string = 'belay'
+    elif params['offload_policy'] == 'local' and params['local_early']:
+        sup_string = 'early'
+    elif params['offload_policy'] == 'local':
+        sup_string = 'cont'
+    elif params['off_belay']:                # for offloading policies
+        sup_string = 'belay'
+    else:
+        sup_string = 'early'
+
+    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'] +"_"+ params['arch'] +"_"+ params['offload_policy'] +"_"+ sup_string, params['HW']+"_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']))
 
     # Set seeds
     if isinstance(seed, int):
@@ -94,15 +108,10 @@ def train(params, start_carla=True, restart=False):
         random.seed(seed)
 
     # Load VAE
-    vae = load_vae(vae_model, vae_z_dim, vae_model_type) # OD: load pretrained VAE that generates latent vecotrs from the RGB images to train the policy network  
+    vae = load_vae(vae_model, vae_z_dim, vae_model_type) # load pretrained VAE that generates latent vecotrs from the RGB images to train the policy network  
     # Override params for logging
     params["vae_z_dim"] = vae.z_dim
     params["vae_model_type"] = "mlp" if isinstance(vae, MlpVAE) else "cnn"
-
-    # print("")
-    # print("Training parameters:")
-    # for k, v, in params.items(): print('  {} , {}'.format(k,v))
-    # print("")
 
     # Create state encoding fn
     measurements_to_include = set(["steer", "throttle", "speed", "xi", "r"])        # OD: remaining state observations; vehicle inertial measurements and the last two terms representing relative angle and distance between vehicle and nearest obstacle
@@ -165,17 +174,9 @@ def train(params, start_carla=True, restart=False):
     else:
         print("Direct automated control following route")
         model = dir_manager(model_dir=os.path.join("models", model_name), subdirs=subdirs_path)
-       
-    # Prompt to load existing model if any
-    # if not restart:
-    #     if os.path.isdir(model.log_dir) and len(os.listdir(model.log_dir)) > 0:
-    #         answer = input("Model \"{}\" already exists. Do you wish to continue (C) or restart training (R)? ".format(model_name))
-    #         if answer.upper() == "C":
-    #             pass
-    #         elif answer.upper() == "R":
-    #             restart = True
-    #         else:
-    #             raise Exception("There are already log files for model \"{}\". Please delete it or change model_name and try again".format(model_name))
+
+    if safety_filter:
+        env.safety_filter = SafetyFilter()
     
     if restart:
         shutil.rmtree(model.model_dir)
@@ -192,18 +193,20 @@ def train(params, start_carla=True, restart=False):
     train_data_path = os.path.join(subdirs_path, "train_data.csv")
     valid_data_path = os.path.join(subdirs_path, "valid_data.csv")
 
-    initial_row = ['episode_idx', 'reward','obstacle_hit', 'curb_hit', 'dist_traveled', 'dist_to_obstacle', 'avg_speed', 
-                    'avg_latency', 'avg_energy', 'missed_windows', 'max_succ_interrupts', 'missed_offloads', 'misguided_energy']
+    initial_row = ['episode_idx', 'reward','obstacle_hit', 'curb_hit', 'dist_traveled', 'dist_to_obstacle', 'avg_speed', 'avg_center_deviance',
+                    'avg_latency', 'avg_energy', 'missed_windows', 'missed_deadlines', 'missed_controls', 'max_succ_interrupts', 'missed_offloads', 'misguided_energy']
     if not os.path.exists(train_data_path):
         with open(train_data_path, 'a', newline='') as fd:
             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(initial_row)
 
+    final_episode_iteration = model.get_episode_idx() + num_episodes
+
     if not os.path.exists(valid_data_path):
         with open(valid_data_path, 'a', newline='') as fd:
             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(initial_row)
-    while num_episodes <= 0 or model.get_episode_idx() < num_episodes:
+    while num_episodes <= 0 or model.get_episode_idx() < final_episode_iteration:
         try:
             start = time.time()
             episode_idx = model.get_episode_idx()
@@ -213,7 +216,7 @@ def train(params, start_carla=True, restart=False):
                 env_seed = seed
             else:
                 env_seed = episode_idx
-            state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0
+            state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0   
             # state is the 64-dim encoder output + 5 measurements to include
             if record_eval and env.display is not None:
                 rendered_frame = env.render(mode="rgb_array")
@@ -228,14 +231,15 @@ def train(params, start_carla=True, restart=False):
             else:
                 video_recorder = None
 
-            path = '/home/mohanadodema/EnergyShield/' + model.log_dir + str(episode_idx) + '_log.log'
+            path = './' + model.log_dir + str(episode_idx) + '_log.log'
             env.client.start_recorder(path, True)   
 
             # Reset environment
-            ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none = [], [], [], [], [], [], [], [], [], [], [], [], []
-            delta_T, phi_est, rtt_est, que_est, phi_true, rtt_true, que_true, miss_flag, rx_flag, transit_flag, recover_flag = [], [], [], [], [], [], [], [], [], [], []
+            ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none, total_rewards = [], [], [], [], [], [], [], [], [], [], [], [], [], []
+            delta_T, phi_est, rtt_est, que_est, phi_true, rtt_true, que_true, miss_flag, transit_window, rx_flag, transit_flag, recover_flag, belaying = [], [], [], [], [], [], [], [], [], [], [], [], []
             selected_action, correct_action, est_latency, est_energy, true_latency, true_energy, exp_latency, exp_energy = [], [], [], [], [], [], [], []
 
+            # first detections based on new frame
             observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
             detections = object_detector.detect(observation_input)      
             masked_detections = mask_detection_boxes(detections, min_score_threshold=0.5)
@@ -269,6 +273,7 @@ def train(params, start_carla=True, restart=False):
 
                     # print(detections['detection_boxes'][0][0])
 
+                    # first control output predictions
                     if model_name.startswith('agent'):
                         action, value = model.predict(state, write_to_summary=True)
                     elif model_name.startswith('casc_agent'):
@@ -278,6 +283,7 @@ def train(params, start_carla=True, restart=False):
 
                     image_np_with_detections = env.observation.copy()
 
+                    # if env.offloading_manager.rx_flag is True:
                     viz_utils.visualize_boxes_and_labels_on_image_array(
                             image_np_with_detections,
                             np.squeeze(detections['detection_boxes']),
@@ -300,9 +306,6 @@ def train(params, start_carla=True, restart=False):
                         exit(0)
                     env.extra_info.extend([
                         "Episode {}".format(episode_idx),
-                        # "Training...",
-                        # "",
-                        "Value:  % 20.2f" % value
                     ])
  
                     if env.display is not None:
@@ -314,10 +317,11 @@ def train(params, start_carla=True, restart=False):
                     total_reward += reward
 
                     # new dashcam observation
-                    observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
-                    detections = object_detector.detect(observation_input)      
-                    new_masked_detections = mask_detection_boxes(detections, min_score_threshold=0.5)
-                    new_masked_detections = new_masked_detections.flatten()[:10*4]
+                    if env.offloading_manager.rx_flag is True:  # if processing successful
+                        observation_input = env.observation[np.newaxis,:,:,:].astype(np.uint8)
+                        detections = object_detector.detect(observation_input)      
+                        new_masked_detections = mask_detection_boxes(detections, min_score_threshold=0.5)
+                        new_masked_detections = new_masked_detections.flatten()[:10*4]
 
                     # For training the ppo 
                     states.append(state)         # [T, *input_shape]
@@ -339,6 +343,7 @@ def train(params, start_carla=True, restart=False):
                     action_none.append(round(info["action_none"], 3))
                     ego_x.append(round(info["ego_x"], 3))
                     ego_y.append(round(info["ego_y"], 3))
+                    total_rewards.append(round(reward, 3))
                     if info["obstacle_x"] is not None:
                         obstacle_x.append(round(info["obstacle_x"], 3))
                     if info["obstacle_y"] is not None:
@@ -371,6 +376,8 @@ def train(params, start_carla=True, restart=False):
                     rx_flag.append(offloading_info["rx_flag"])
                     transit_flag.append(offloading_info["transit_flag"])
                     recover_flag.append(offloading_info["recover_flag"])
+                    transit_window.append(offloading_info["transit_window"])
+                    belaying.append(offloading_info["belaying"])
 
                     if terminal_state:
                         route = info["route"]
@@ -440,8 +447,8 @@ def train(params, start_carla=True, restart=False):
                 plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
                 plot_energy_stats(exp_latency, exp_energy, phi_true, miss_flag, model.plot_dir, episode_idx, params)
 
-                df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'ego_x': pd.Series(ego_x), 'ego_y': pd.Series(ego_y), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 
-                                    '': "", 'delta_T': pd.Series(delta_T), 'rx_flag': pd.Series(rx_flag), 'miss_flag': pd.Series(miss_flag), 'transit_flag': pd.Series(transit_flag), 'recover_flag': pd.Series(recover_flag), 
+                df = pd.DataFrame({'sim_time': pd.Series(sim_time), 'r':pd.Series(r), 'xi':pd.Series(xi), 'ego_x': pd.Series(ego_x), 'ego_y': pd.Series(ego_y), 'rl_throttle':pd.Series(rl_throttle), 'rl_steer':pd.Series(rl_steer), 'rewards': pd.Series(total_rewards),
+                                    '': "", 'delta_T': pd.Series(delta_T), 'transit_window': pd.Series(transit_window), 'rx_flag': pd.Series(rx_flag), 'miss_flag': pd.Series(miss_flag), 'transit_flag': pd.Series(transit_flag), 'recover_flag': pd.Series(recover_flag), 'belaying': pd.Series(belaying), 
                                     '': "", 'selected_action': pd.Series(selected_action), 'correct_action': pd.Series(correct_action), 'est_latency': pd.Series(est_latency), 'exp_latency': pd.Series(exp_latency), 'est_energy': pd.Series(est_energy), 'exp_energy': pd.Series(exp_energy),
                                     '': "", 'phi_est': pd.Series(phi_est), 'rtt_est': pd.Series(rtt_est), 'que_est': pd.Series(que_est), 'phi_true': pd.Series(phi_true), 'rtt_true': pd.Series(rtt_true), 'que_true': pd.Series(que_true)})
                 df.to_csv(model.plot_dir + '/train_' + str(episode_idx) + '.csv')
@@ -449,8 +456,8 @@ def train(params, start_carla=True, restart=False):
                 if video_recorder is not None:
                     video_recorder.release()
                 if (env.distance_traveled > 0.0):
-                    data_row =  [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3),
-                                np.mean(exp_latency), np.mean(exp_energy), env.offloading_manager.missed_windows, env.offloading_manager.max_succ_interrupts, env.offloading_manager.missed_offloads, env.offloading_manager.misguided_energy]
+                    data_row = [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3), round(env.center_lane_deviation/env.step_count, 3), 
+                                round(np.mean(exp_latency),3), round(np.mean(exp_energy),3), env.offloading_manager.missed_windows, env.offloading_manager.missed_deadlines, env.missed_controls, env.offloading_manager.max_succ_interrupts, env.offloading_manager.missed_offloads, env.offloading_manager.misguided_energy]
                     if test:
                         with open(valid_data_path, 'a', newline='') as fd:
                             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -540,8 +547,9 @@ if __name__ == "__main__":
     parser.add_argument("--off_belay", action='store_true', default=False, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )        
     parser.add_argument("--local_belay", action='store_true', default=False, help="belay local execution until the last execution window of the dealdine")
     parser.add_argument("--local_early", action='store_true', default=False, help="instantly perform local execution at the first attainable window of the dealdine")
-    parser.add_argument("-hold_det_img", action='store_true', default=False, help="hold detector image after transmission/belay initiated")
-    parser.add_argument("-hold_vae_img", action='store_true', default=False, help="hold VAE image after transmission/belay initiated")
+    parser.add_argument("--hold_det_img", default=True, help="hold detector image after transmission/belay initiated" )
+    parser.add_argument("--hold_vae_img", default=False, help="hold VAE image after transmission/belay initiated")
+    parser.add_argument("--cont_control", default=False, help="Controller keeps updating based on state variable even if the OD is offloaded (fixed detections from last frame)")
 
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
@@ -549,9 +557,9 @@ if __name__ == "__main__":
     parser.add_argument("--phi_scale", type=float, default=20, help="scale parameter for the channel capacity pdf")
     parser.add_argument("--phi_shift", type=float, default=0, help="shift parameter for the channel capacity pdf")
     parser.add_argument("--rtt_dist", type=str, default='gamma', help="use gamma or rayleigh pdf for rtt", choices=['rayleigh', 'gamma'])
-    parser.add_argument("--rtt_shape", type=float, default=1.25, help="shape parameter for RTT pdf")     # 3.5
-    parser.add_argument("--rtt_scale", type=float, default=2, help="scale parameter for RTT pdf")     # 5.5
-    parser.add_argument("--rtt_shift", type=float, default=2, help="shift from zero for RTT pdf")      # 10
+    parser.add_argument("--rtt_shape", type=float, default=0, help="shape parameter for RTT pdf")   #1.25  # 3.5
+    parser.add_argument("--rtt_scale", type=float, default=0, help="scale parameter for RTT pdf")   #2     # 5.5
+    parser.add_argument("--rtt_shift", type=float, default=0, help="shift from zero for RTT pdf")   #2     # 10
     parser.add_argument("--qsize", type=int, default=4000 , help='queue size at the server')
     parser.add_argument("--arate", type=int, default=970 , help='arrival rate for queue size pdf')
     parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')
@@ -567,23 +575,24 @@ if __name__ == "__main__":
     parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
     parser.add_argument("--len_obs", type=int, default=1, help="How many objects to be spawned given len_route is satisfied")
     parser.add_argument("--obs_step", type=int, default=0, help="Objects distribution along the route after the first one")
-    parser.add_argument("--obs_start_idx", type=int, default=50, help="spawning index of first obstacle")
+    parser.add_argument("--obs_start_idx", type=int, default=30, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
     parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-    # tf.get_logger().setLevel('ERROR')
 
     params = vars(parser.parse_args())
 
     if params["display_off"]:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
 
+    assert params["hold_det_img"] is True and params["hold_vae_img"] is False
+
     # Remove a couple of parameters that we dont want to log
     start_carla = params["start_carla"]; del params["start_carla"]
     restart = params["restart"]; del params["restart"]
 
-    tf.compat.v1.reset_default_graph()
+    # tf.compat.v1.reset_default_graph()
 
     # Start training
     train(params, start_carla, restart)

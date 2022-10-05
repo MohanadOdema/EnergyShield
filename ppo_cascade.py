@@ -10,7 +10,12 @@ import tensorflow_probability as tfp
 
 from utils import build_mlp, create_counter_variable, create_mean_metrics_from_dict
 
-# TODO Replace layers here to suppress warnings
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
 
 class PolicyGraph():
     """
@@ -193,7 +198,7 @@ class PPO_CASCADE():
         self.stepwise_prediction_summaries = tf.summary.merge(summaries)
 
         # Setup model saver and dirs
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(tf.global_variables())
         self.model_dir = model_dir
         self.subdirs = subdirs
         self.checkpoint_dir = "{}/checkpoints/".format(self.model_dir)
@@ -287,7 +292,6 @@ class PPO_CASCADE():
         self.train_writer.add_summary(self.sess.run(summary_op))
 
     def write_episodic_summaries(self):
-        #self.train_writer.add_summary(self.sess.run(self.episodic_summaries), self.get_episode_idx())
         self.sess.run([self.episode_counter.inc_op, tf.local_variables_initializer()])
 
     def update_old_policy(self):

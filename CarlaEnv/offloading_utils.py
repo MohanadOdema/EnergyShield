@@ -94,7 +94,7 @@ class OffloadingManager():
         self.bottleneck_ch          = params["bottleneck_ch"]
         self.bottleneck_quant       = params["bottleneck_quant"]
         self.scale                  = params["noise_scale"]
-        self.disc_dealdine          = self.discretize_deadline()
+        self.disc_deadline          = self.discretize_deadline()
         self.input_size             = self.compute_input_size()
         self.bottleneck_size        = self.compute_bottleneck_size()
         self.full_local_latency     = full_local_latency[self.img_resolution][self.HW][self.arch]
@@ -112,13 +112,12 @@ class OffloadingManager():
         self.off_belay              = params["off_belay"]          
         self.local_belay            = params["local_belay"]
         self.local_early            = params["local_early"]
-        self.belaying               = False
 
-        assert self.local_belay and self.local_early == 0:
+        assert (self.local_belay and self.local_early) is False
         self.reset()
 
     def reset(self):
-        self.end_tx_flag       = False     # The overall deadline
+        self.end_tx_flag            = False     # The overall deadline
         self.missed_window_flag     = False
         self.missed_deadlines       = 0
         self.missed_windows         = 0         # Total missed_windows or fail-safe - calculated on a one-window granularity        
@@ -131,6 +130,8 @@ class OffloadingManager():
         self.recover_flag           = False     # If delta_T predicted by the shield was not met during operation
         self.transit_flag           = False     # For when the shield has already initiated transmission for multiple time windows
         self.rx_flag                = False     # For when the offloaded result is returned - only needed for shield belaying
+        self.belaying               = False
+        self.process_current        = False     # To override processing the old input image with one from corresponding time step
         self.transit_window         = 1         # starts from 1 to be comparable to delta_T (i.e., time windows are identified by their ending)
         self.rem_size               = 0         # If tx size carries to the following window
         self.rem_val                = 0         # For when a latency componenet initiated but will finish in a successive window
@@ -142,8 +143,10 @@ class OffloadingManager():
         self.current_rtt2_latency   = 0
 
     def determine_offloading_decision(self, channel_params, delta_T=None, initialize=False):
+        self.initialize = initialize
         self.delta_T = delta_T if delta_T is not None else self.disc_deadline
         self.rx_flag = False                                       # reset every time window
+        self.process_current = False                               # This is needed for holding the detection images
         if self.transit_flag and not self.end_tx_flag:             # This is only for the offloading actions
             self.transit_window += 1 
             self.true_off_latency, self.true_off_energy = self.update(channel_params['phi_true'], channel_params['rtt_true'], channel_params['que_true'])
@@ -160,6 +163,7 @@ class OffloadingManager():
             if self.transit_window == self.delta_T:
                 if self.selected_action == 0 and self.local_belay:                       # Executing locally on the last time window within the deadline horizon
                     self.rx_flag = True
+                    self.process_current = True
                     self.exp_total_latency, self.exp_total_energy = self.remedy(channel_params)         
                 self.belaying = False                      # Next time window will be a new offloading decision
             return
@@ -224,14 +228,13 @@ class OffloadingManager():
                 return 1
         return 0
 
-    # plan out the two mode local exeuction for tomorrow, and then start thinking about the cameras holding
     def manage_timings(self, channel_params):
         if self.selected_action == 1:                               # Offloading
             if self.window_elapsed():
                 self.missed_window_flag = True
                 self.missed_windows += 1
                 # For all offloading actions
-                violation_breakdown()               
+                self.violation_breakdown(channel_params)               
                 if self.transit_window == (self.delta_T - 1) and (self.offload_policy == 'Shield' or 'failsafe' in self.offload_policy):  # policy with recovery window at last acceptable window        
                     self.transit_flag = False
                     self.recover_flag = True                         
@@ -240,13 +243,12 @@ class OffloadingManager():
                 elif self.transit_window == self.delta_T:             # full deadline passed and still no response
                     self.transit_flag = True
                     self.end_tx_flag = True
-                    # self.missed_deadlines += 1                      # TODO: implement on whether the results were received in the last window
                 else:
                     raise RuntimeError("Incorrect transit window #")
                 self.succ_interrupts += 1
             else:
                 self.rx_flag = True                                                                
-                if self.off_belay and (self.transit_window < self.delta_T):     # stay idle after rx till delta_T expires                   # I already computed so I do not need to recouver before delta_T expires like transit
+                if self.off_belay and (self.transit_window < self.delta_T):     # stay idle after rx till delta_T expires
                     self.belaying = True
                 if self.transit_window == 1 and (self.full_local_energy < self.true_off_energy):        # Wrong energy decision / condition on transit_window so as not to recount wrong decisions
                     self.misguided_energy += 1
@@ -256,13 +258,15 @@ class OffloadingManager():
         else:
             self.transit_flag = False
             self.succ_interrupts = 0
-            if self.transit_window == 1 and self.correct_action == 1:     # if better energy from offload (this is without contextual safety)
+            if self.transit_window == 1 and self.correct_action == 1 and self.initialize == False:     # if better energy from offload (this is without contextual safety)
                 self.missed_offloads += 1 
             # Execution after recovery
             elif self.rx_flag:          # This is a recovery window - otherwise manage_timings is only accessed in the first transit window for local_execution
+                self.process_current = True                
                 assert self.transit_window == self.delta_T              
             # Local Execution Behavior - either in explicit local policies or adaptive
             if self.local_early and not self.rx_flag:    # not rx_flag to ensure executing when no recovery cond.               
+                self.process_current = True
                 self.rx_flag = True
                 self.belaying = True
                 assert self.transit_window == 1
@@ -276,13 +280,16 @@ class OffloadingManager():
                 self.rx_flag = True                 # This executes every window
         self.exp_off_latency, self.exp_off_energy = self.remedy(channel_params)        # Obtain the actual transmission overheads in this window
         self.max_succ_interrupts = max(self.max_succ_interrupts, self.succ_interrupts)
+        # count missed dealdines
+        if (self.transit_window == self.delta_T) and (not self.rx_flag) and (not self.belaying):
+            self.missed_deadlines += 1
 
     def window_elapsed(self):
         if (self.true_off_latency > self.time_window):      # self.true_off_latency takes into consideration both self.head_latency if needed (evaluate() and update() distinction)
             return True 
         return False
 
-    def violation_breakdown(channel_params):
+    def violation_breakdown(self, channel_params):
         if self.current_tx_latency > self.time_window:
             current_tx_size = self.input_size if self.transit_window == 1 else self.rem_size
             self.current_transition = 0

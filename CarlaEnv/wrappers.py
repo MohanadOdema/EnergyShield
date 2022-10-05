@@ -12,6 +12,17 @@ import onnx
 from onnx_tf.backend import prepare
 import numpy as np
 from numpy import (array, dot, arccos, clip)
+import tensorflow
+import tensorflow.compat.v1 as tf
+
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+
+tf.compat.v1.disable_eager_execution()
 
 def print_transform(transform):
     print("Location(x={:.2f}, y={:.2f}, z={:.2f}) Rotation(pitch={:.2f}, yaw={:.2f}, roll={:.2f})".format(
@@ -292,16 +303,55 @@ class World():
 #===============================================================================
 # Safety Filter
 #===============================================================================
+
+def output_delta_T(control=None):
+    # Based on the measurement of the xi and r, (maybe speed and other factors) - we can output the delta_T 
+    # Should include some preprocessing to floor it to a multiplier
+
+    # delta_T LOGIC:
+    # It should be defined naturally as a positive int 
+    # if 0 or 1, then I have only one window or less to complete execution,  set the recover flag and execute locally for maximum robustness
+    # if any number > 1, I compare the current tx window (starts from 1) against it, and if current_Tx == delta-1 and it has not concluded processing yet, it means that next window when current_Tx == delta should be local execution regardless 
+    # raise NotImplementedError
+
+    return random.randint(1, 20)
+
+class SafetyFilter2():         # with eager_execution for tensorflow debugging purposes
+    def __init__(self):
+        self.input_shape = (1,1,2)
+        self.input_image = tf.placeholder(shape=self.input_shape, dtype=np.float32, name='xi_and_r')
+        model = tf.keras.models.load_model('1.h5')
+        self.tf_model1 = model(self.input_image)
+
+    def init_session(self,sess=None, init_logging=True):
+        if sess is None:
+            self.sess = tf.Session()
+            self.sess.run([tf.global_variables_initializer(), tf.local_variables_initializer()])
+        else:
+            self.sess = sess
+
+    def filter_control(self):
+        input = np.array([[[3, 4]]])
+        input = input.astype(np.float32)
+
+        # output = self.tf_model1.run(input)['PathDifferences3_Add'][0,0,0]
+        output = self.sess.run(self.tf_model1, feed_dict={self.input_image: input})
+
+        return output
+
 class SafetyFilter():
     def __init__(self):
-        # load onnx models and convert to tf models
+        # load shield models
+        tf.disable_eager_execution()
+        model = tf.keras.models.load_model('1.h5')
+        self.tf_model1 = model
+        model = tf.keras.models.load_model('2.h5')
+        self.tf_model2 = model
+        model = tf.keras.models.load_model('3.h5')
+        self.tf_model3 = model
+
         self.filtering  = True
-        model = onnx.load('1.onnx')
-        self.tf_model1 = prepare(model)
-        model = onnx.load('2.onnx')
-        self.tf_model2 = prepare(model)
-        model = onnx.load('3.onnx')
-        self.tf_model3 = prepare(model)
+
         self.beta   = None
         self.r      = None
         self.psi    = None
@@ -311,45 +361,26 @@ class SafetyFilter():
         self.rBar = 4
         self.steer_to_angle = 1.22173
 
-    def output_delta_T(self, control):
-        # Based on the measurement of the xi and r, (maybe speed and other factors) - we can output the delta_T 
-        # Should include some preprocessing to floor it to a multiplier
-
-        # delta_T LOGIC:
-        # It should be defined naturally as a positive int 
-        # if 0 or 1, then I have only one window or less to complete execution,  set the recover flag and execute locally for maximum robustness
-        # if any number > 1, I compare the current tx window (starts from 1) against it, and if current_Tx == delta-1 and it has not concluded processing yet, it means that next window when current_Tx == delta should be local execution regardless 
-        # raise NotImplementedError
-
-        return random.randint(1, 20)       # place holder function -> delta_T sampled from [1,20]
-
     def toggle_filtering(self):
         self.filtering = not self.filtering
     def barrier(self):
         return self.rBar/(self.sigma*math.cos(self.xi/2) + 1 - self.sigma)
     def filter_control(self, control):
-        #print("filter_control")
         if (not self.filtering) or (self.xi is None):
             return control, 0, False
 
         delta = control.steer * self.steer_to_angle# 70 degrees in radians
         self.beta = math.atan(0.5 * math.tan(delta))
         input = np.array([[[self.xi, self.beta]]])
-        #print(f'r = {self.r} psi = {self.psi} .... xi = {self.xi} james_xi = {self.james_xi}')
-        #print("r = ", self.r)
-        if self.r > self.barrier()+ 0.6: #or ((self.james_xi < 1.57) and (self.james_xi > -1.57)):
-            # no filter
-            #print("no filter")
+        input = input.astype(np.float32)
+        if self.r > self.barrier()+ 0.6: 
             return control, 0, False
         elif self.r > self.barrier() + 0.5:
-            output = self.tf_model3.run(input)['PathDifferences3_Add'][0,0,0]
-            #print("model3")
+            output = self.tf_model3.predict(input)[0][0][0]
         elif self.r > self.barrier() + 0.25:
-            output = self.tf_model2.run(input)['PathDifferences3_Add'][0,0,0]
-            #print("model2")
+            output = self.tf_model2.predict(input)[0][0][0]
         else:
-            output = self.tf_model1.run(input)['PathDifferences3_Add'][0,0,0]
-            #print("model1")
+            output = self.tf_model1.predict(input)[0][0][0]
         delta_new = math.atan(2 * math.tan(output))
         new_control = carla.VehicleControl()
         new_control.brake = control.brake
@@ -358,20 +389,8 @@ class SafetyFilter():
         new_control.manual_gear_shift = control.manual_gear_shift
         new_control.reverse = control.reverse
         new_control.steer = float(delta_new/self.steer_to_angle)
-        # cap speed to 36 kph == 10 m/s
-        #print("self.player_speed", self.player_speed)
-        #if self.player_speed < 8:
-        #    
         new_control.throttle = control.throttle
-        #else:
-        #    print("set throttle to 0")
-        #    new_control.throttle = 0.0
-        #print(f'orig steer {control.steer}, filtered steer {output}')
-        #control.steer = float(output)
-        #print("control steer ", control.steer)
         steer_diff = abs(delta_new - delta)
-        #print("safet_delta", delta_new)
-        #print("steer_diff", steer_diff)
         return new_control, steer_diff, True
 
     def set_filter_inputs(self, xi, r):

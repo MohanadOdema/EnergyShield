@@ -46,7 +46,6 @@ class Detector():           # without eager_execution
         self.input_image = tf.placeholder(shape=(None, *self.input_shape), dtype=np.uint8, name='detection_input_image_placeholder')
         pretrained_model = hub.load(hub_dict[model])
         self.model = pretrained_model(self.input_image)
-        # self.model = tf.layers.conv2d(x, filters=32,  kernel_size=4, strides=2, activation=tf.nn.relu, padding="valid", name="conv1")
 
     def init_session(self, sess=None, init_logging=True):
         if sess is None:
@@ -54,16 +53,8 @@ class Detector():           # without eager_execution
             self.sess.run([tf.global_variables_initializer(), tf.local_variables_initializer()])
         else:
             self.sess = sess 
-        # if init_logging:
-        #     self.train_writer = tf.summary.FileWriter(os.path.join(self.log_dir, "train"), self.sess.graph)
-        #     self.val_writer = tf.summary.FileWriter(os.path.join(self.log_dir, "val"), self.sess.graph)
 
     def detect(self, source_inputs=None):
-        #OVERRIDE source_inputs
-        # print(type(source_inputs))
-        #exit()
-        # source_inputs = tf.random.uniform(shape=[1,640,640,3])
-        # source_inputs = np.asarray(source_inputs)
         return self.sess.run(self.model, feed_dict={self.input_image: source_inputs})
 
 
@@ -75,7 +66,6 @@ if __name__ == "__main__":
     while True:
         start = time.time()
         detection_outputs = object_detector.detect(source_inputs)
-        # print(detection_outputs)
         elapsed = time.time() - start
 
         print(elapsed)

@@ -76,7 +76,7 @@ class HUD(object):
                 # "",
                 # "Map:     % 20s" % world.map.name,
                 #"Simulation time: % 12s" % datetime.timedelta(seconds=int(self.simulation_time)),
-                "Number of vehicles: % 8d" % len(vehicles)
+                # "Number of vehicles: % 8d" % len(vehicles)
             ]
 
             # Show info of attached vehicle
@@ -91,10 +91,10 @@ class HUD(object):
                 heading += "W" if -0.5 > t.rotation.yaw > -179.5 else ""
                 
                 self.info_text.extend([
-                    "Vehicle: % 20s" % get_actor_display_name(self.vehicle, truncate=20),
+                    # "Vehicle: % 20s" % get_actor_display_name(self.vehicle, truncate=20),
                     "",
                     "Speed:   % 15.0f km/h" % (3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2)),
-                    u"Heading:% 16.0f\N{DEGREE SIGN} % 2s" % (t.rotation.yaw, heading),
+                    # u"Heading:% 16.0f\N{DEGREE SIGN} % 2s" % (t.rotation.yaw, heading),
                     "Location:% 20s" % ("(% 5.1f, % 5.1f)" % (t.location.x, t.location.y)),
                     # "Height:  % 18.0f m" % t.location.z,
                     "",
