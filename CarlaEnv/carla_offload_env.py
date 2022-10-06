@@ -1,5 +1,6 @@
 import os
 import subprocess
+import random
 import time
 import tensorflow
 import tensorflow.compat.v1 as tf
@@ -80,6 +81,7 @@ class CarlaOffloadEnv(gym.Env):
         self.hold_det_img           = params["hold_det_img"]
         self.hold_vae_img           = params["hold_vae_img"]
         self.cont_control           = params["cont_control"]
+        self.spawn_random           = params["spawn_random"]
 
         self.offloading_manager = OffloadingManager(params)
         self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
@@ -107,12 +109,11 @@ class CarlaOffloadEnv(gym.Env):
         self.action_space = gym.spaces.Box(np.array([-self.steer_cap, 0]), np.array([self.steer_cap, 1]), dtype=np.float32) # steer, throttle -- first array is the lowest acceptable values, 2nd is the highest
         self.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=(*obs_res, 3), dtype=np.float32)
         self.metadata["video.frames_per_second"] = self.fps = self.average_fps = fps
-        self.spawn_point = 1
         self.action_smoothing = action_smoothing
         self.encode_state_fn = (lambda x: x) if not callable(encode_state_fn) else encode_state_fn
         self.reward_fn = (lambda x: 0) if not callable(reward_fn) else reward_fn
-        self.valid_obstacle = False
         self.world = None
+        self.spawn_random = params['spawn_random']
         self.steer_diff = 0.0
         try:
             # Connect to carla
@@ -147,11 +148,14 @@ class CarlaOffloadEnv(gym.Env):
             start_index, end_index, road_option_count = 0,0,0
             if track == 1:
                 start_index = 46
-                end_index   = 205           # These spawn positions are on the lane path [3,7,69,197,205,239]
+                end_index   = 205           # These spawn positions are on the lane path [3,7,46,69,197,205,239]
                 road_option_count = 1
             lap_start_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[start_index].location)
-            spawn_transform = lap_start_wp.transform                                    # Location(x=406.002960, y=-122.577194, z=0.000000)
+
+            # spawn_transform = lap_start_wp.transform          # Exact: Transform(Location(x=406.024902, y=-124.677002, z=0.000000), Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
+            spawn_transform = carla.Transform(carla.Location(x=406.024902, y=-124.677002, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
             spawn_transform.location += carla.Location(z=1.0)
+
             lap_end_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[end_index].location)
             spawn_transform_end = lap_end_wp.transform
             spawn_transform_end.location += carla.Location(z=1.0)
@@ -176,6 +180,8 @@ class CarlaOffloadEnv(gym.Env):
             self.vehicle = Vehicle(self.world, spawn_transform,
                                    on_collision_fn=lambda e: self._on_collision(e),
                                    on_invasion_fn=lambda e: self._on_invasion(e))
+
+            # self.vehicle.set_location(transform.location + carla.Location(y=-80))   #x= (-3.5,8)   # i need to do it on spawn time/ or check where the obstacle is messing up
             
             if self.model_name == 'BasicAgent':
                 self.agent = BasicAgent(self.vehicle, target_speed=40)
@@ -330,6 +336,9 @@ class CarlaOffloadEnv(gym.Env):
         else:
             time.sleep(2.0)
 
+        if self.spawn_random:        # randomize where the ego is spawned to cover more corner cases
+            self.ego_pos_randomize()
+
         self.terminal_state = False # Set to True when we want to end episode
         self.track_completed   = False
         self.closed = False         # Set to True when ESC is pressed
@@ -388,7 +397,7 @@ class CarlaOffloadEnv(gym.Env):
             "Safety Filter:       %s"        % 'Active' if self.safety_filter is not None else self.safety_filter, 
             "",
             "Policy (DL):   %s (%1.0f ms)" % (self.offloading_manager.offload_policy, self.offloading_manager.deadline),
-            "delta_T:             %1.0f" % (self.offloading_manager.delta_T),
+            "delta_T:             %1.0f"   % (self.offloading_manager.delta_T),
             "transit_window:      %s"            % (self.offloading_manager.transit_window),
             "rx_flag?             %s"            % (self.offloading_manager.rx_flag),
             "transit?             %s"            % (self.offloading_manager.transit_flag and not self.offloading_manager.end_tx_flag),
@@ -436,6 +445,43 @@ class CarlaOffloadEnv(gym.Env):
             return np.array(pygame.surfarray.array3d(self.display), dtype=np.uint8).transpose([1, 0, 2])
         elif mode == "state_pixels":
             return self.observation_display
+
+    def ego_pos_randomize(self):
+        transform = self.vehicle.get_transform()
+        location = transform.location
+        rotation = transform.rotation
+        if random.random() <= 0.1:         
+            print("normal run")
+            return
+        while True:
+            print('randomizing..')
+            min_distance = 10000
+            x = random.randrange(-4, 9, 1)          # randrange: lower bound included, upper bound not included
+            y = random.randrange(-90, 1, 10)
+            if x > 0:
+                yaw = random.randrange(5, 46, 10)
+            elif x < 0:
+                yaw = random.randrange(-45, -4, 10)
+            else:
+                yaw = random.randrange(-45, 46, 10)
+            location.x += x
+            location.y += y
+            rotation.yaw += yaw 
+            new_transform = carla.Transform(location, rotation)
+            for obstacle in self.obstacles:
+                distance = self.rv_estimator(new_transform, obstacle.get_transform().location)
+                if distance < min_distance:
+                    min_distance = distance
+                print(min_distance)
+
+            if min_distance > 5:
+                self.vehicle.set_transform(new_transform)
+                break
+
+    def rv_estimator(self, player_transform, obstacle_location):    # used when randomizing
+        r_v = np.array([player_transform.location.x, player_transform.location.y]) - np.array(
+            [obstacle_location.x, obstacle_location.y])
+        return np.linalg.norm(r_v)        
     
     def obstacle_state_estimator(self, player_transform, obstacle_location, player_speed):
         r_v = np.array([player_transform.location.x, player_transform.location.y]) - np.array(
@@ -445,7 +491,7 @@ class CarlaOffloadEnv(gym.Env):
         self.xi = math.atan2(player_transform.location.y- obstacle_location.y, player_transform.location.x- obstacle_location.x) - psi
         self.xi = math.atan2(math.sin(self.xi), math.cos(self.xi))
 
-    def step(self, action):         #TODO FIX: I need to have the channel estimates after the tick and before holding the images
+    def step(self, action):         
         self.steer_diff = 0.0
         
         if self.closed:
@@ -727,7 +773,7 @@ class CarlaOffloadEnv(gym.Env):
         elif "Prop" in obstacle_name:
             print("Hit a Prop Gnome!")
             self.obstacle_hit = True
-        elif "Fence" in obstacle_name:
+        elif "Fence" in obstacle_name or "Guardrail" in obstacle_name:
             print("Hit a curb")
             self.curb_hit = True
         self.terminal_state = True

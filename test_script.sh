@@ -43,7 +43,7 @@ python run.py --model_name casc_agent3 -obstacle -test --offload_policy local --
 
 python run.py --model_name casc_agent3 -obstacle -test --offload_policy local --len_obs 3 --obs_start_idx 30 --num_episodes 30 -gaussian -safety_filter
 
-python run.py --model_name casc_agent3 -obstacle -test --offload_policy local --len_obs 5 --obs_start_idx 15 --num_episodes 30
+# python run.py --model_name casc_agent3 -obstacle -test --offload_policy local --len_obs 5 --obs_start_idx 15 --num_episodes 30
 
 python run.py --model_name casc_agent3 -obstacle -test --offload_policy local --len_obs 5 --obs_start_idx 15 --num_episodes 30 -gaussian
 

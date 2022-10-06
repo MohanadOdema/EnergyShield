@@ -33,8 +33,8 @@ from object_detection.builders import model_builder
 from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
 # from CarlaEnv.agents.navigation import basic_agent, behavior_agent
 
-# TODO: this needs to be installed as part of the docker and changed path
-PATH_TO_LABELS = '/home/mohanadodema/TensorFlow/models/research/object_detection/data/mscoco_label_map.pbtxt'
+parent_directory = os.path.abspath(os.path.join(__file__,os.pardir + "/" + os.pardir))
+PATH_TO_LABELS = parent_directory + '/TensorFlow/models/research/object_detection/data/mscoco_label_map.pbtxt'
 
 def train(params, start_carla=True, restart=False):
     # Read parameters
@@ -210,8 +210,6 @@ def train(params, start_carla=True, restart=False):
         try:
             start = time.time()
             episode_idx = model.get_episode_idx()
-            # Run evaluation periodically
-
             if seed > 0:
                 env_seed = seed
             else:
@@ -231,8 +229,9 @@ def train(params, start_carla=True, restart=False):
             else:
                 video_recorder = None
 
-            path = './' + model.log_dir + str(episode_idx) + '_log.log'
-            env.client.start_recorder(path, True)   
+            recorder_path = parent_directory + "/EnergyShield/" + model.log_dir + str(episode_idx) + '_log.log'
+
+            env.client.start_recorder(recorder_path, True)
 
             # Reset environment
             ego_x, ego_y, obstacle_x, obstacle_y, xi, r, rl_steer, rl_throttle, filter_steer, filter_throttle, sim_time, filter_applied, action_none, total_rewards = [], [], [], [], [], [], [], [], [], [], [], [], [], []
@@ -511,6 +510,7 @@ if __name__ == "__main__":
     parser.add_argument("--action_smoothing", type=float, default=0.0, help="Action smoothing factor")
     parser.add_argument("-start_carla", action="store_true", help="Automatically start CALRA with the given environment settings")
     parser.add_argument("--time_window", type=int, default=20, help="The discretized time window duration in ms")
+    parser.add_argument("--spawn_random", action="store_true", help="Spawn ego vehicle at random position and orientation")
 
     # Training parameters
     parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name") #choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'casc_agent4', 'BasicAgent', 'BehaviorAgent'])
