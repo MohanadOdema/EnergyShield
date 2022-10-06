@@ -1,3 +1,19 @@
+10/05 -- 22:25
+
+Local (multiplicative reward)
+
+Local (multiplicative reward)
+python run.py --model_name casc_agent1 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 0 --deadline 100 --len_obs 5 --len_route medium --observation_res 80 -penalize_dist_obstacle
+
+Instance1 (RCPS): 
+Model1: no penalize distance obstacle  
+
+Instance2 (RCPS):
+Model3: penalize distance obstacle
+
+Instance3 (RCPS):
+Model3: no penalize distance obstacle
+
 ----------------------------------------------------------
 08/26 -- 16:30 -- I need to run scripts 2-4
 

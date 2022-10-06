@@ -447,23 +447,27 @@ class CarlaOffloadEnv(gym.Env):
             return self.observation_display
 
     def ego_pos_randomize(self):
-        transform = self.vehicle.get_transform()
-        location = transform.location
-        rotation = transform.rotation
-        if random.random() <= 0.1:         
+        if random.random() <= 0.05:         
             print("normal run")
             return
         while True:
+            transform = self.vehicle.get_transform()
+            location = transform.location
+            rotation = transform.rotation
             print('randomizing..')
             min_distance = 10000
-            x = random.randrange(-4, 9, 1)          # randrange: lower bound included, upper bound not included
-            y = random.randrange(-90, 1, 10)
-            if x > 0:
-                yaw = random.randrange(5, 46, 10)
-            elif x < 0:
-                yaw = random.randrange(-45, -4, 10)
+            if random.random() < 0.5:
+                x = random.randrange(-4, 1, 1)          # randrange: lower bound included, upper bound not included
             else:
-                yaw = random.randrange(-45, 46, 10)
+                x = random.randrange(1, 8, 1)
+            y = random.randrange(-50, 1, 5)
+            yaw = random.randrange(-45, 46, 10)
+            # if x > 0:
+            #     yaw = random.randrange(5, 46, 10)
+            # elif x < 0:
+            #     yaw = random.randrange(-45, -4, 10)
+            # else:
+            #     yaw = random.randrange(-45, 46, 10)
             location.x += x
             location.y += y
             rotation.yaw += yaw 
@@ -472,9 +476,9 @@ class CarlaOffloadEnv(gym.Env):
                 distance = self.rv_estimator(new_transform, obstacle.get_transform().location)
                 if distance < min_distance:
                     min_distance = distance
-                print(min_distance)
-
-            if min_distance > 5:
+            if min_distance > 3:
+                print(f"After Modification")
+                print(f"x: {x}, y: {y}, yaw: {yaw}, min_dist: {min_distance}")
                 self.vehicle.set_transform(new_transform)
                 break
 
