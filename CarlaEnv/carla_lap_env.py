@@ -146,7 +146,7 @@ class CarlaLapEnv(gym.Env):
             #lap_start_wp = self.world.map.get_waypoint(carla.Location(x=-180.0, y=110))
             start_index, end_index, road_option_count = 0,0,0
             if track == 1:
-                start_index = 46
+                start_index = 46    # 21 if Town04
                 # end_index   = 232         # Original spawn position not on the lane path
                 end_index   = 205           # These spawn positions are on the lane path [3,7,69,197,205,239]
                 road_option_count = 1

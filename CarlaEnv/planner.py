@@ -53,7 +53,7 @@ def compute_route_waypoints(world_map, start_waypoint, end_waypoint, resolution=
                 wp_choice = current_waypoint.next(resolution)       # decrements/increments an axis by 1 
                 # Stop at destination
                 # print(current_waypoint.transform.location.distance(end_waypoint.transform.location))
-                if current_waypoint.transform.location.distance(end_waypoint.transform.location) < resolution:
+                if current_waypoint.transform.location.distance(end_waypoint.transform.location) < 1: # resolution:
                     break
             if action == RoadOption.VOID:
                 break

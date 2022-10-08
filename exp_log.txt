@@ -5,13 +5,13 @@ Local (multiplicative reward)
 Local (multiplicative reward)
 python run.py --model_name casc_agent1 -obstacle --img_resolution 80p --arch ResNet152 --offload_policy adaptive --offload_position direct --num_episodes 0 --deadline 100 --len_obs 5 --len_route medium --observation_res 80 -penalize_dist_obstacle
 
-Instance1 (RCPS): 
+Instance1 - casc-agent2 (RCPS):  (docker container carla5)
 Model1: no penalize distance obstacle  
 
-Instance2 (RCPS):
+Instance2 - casc_agent3 (RCPS):  (docker container carla6)
 Model3: penalize distance obstacle
 
-Instance3 (RCPS):
+Instance3 (RCPS):  (No memory available!)
 Model3: no penalize distance obstacle
 
 ----------------------------------------------------------

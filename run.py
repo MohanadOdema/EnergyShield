@@ -565,7 +565,7 @@ if __name__ == "__main__":
     parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')
 
     # Carla Config file
-    parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
+    parser.add_argument("--carla_map", type=str, default='Town04_OPT', help="load map")
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
     parser.add_argument("-display_off", action='store_true', help='Turn off display running experiments on the server')

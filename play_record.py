@@ -31,7 +31,10 @@ def main():
     argparser.add_argument('-c', '--camera', metavar='C', default=0, type=int, help='camera follows an actor (ex: 82)')
     argparser.add_argument('-x', '--time-factor', metavar='X', default=1.0, type=float, help='time factor (default 1.0)')
     argparser.add_argument('-i', '--ignore-hero', action='store_true', help='ignore hero vehicles')
+    argparser.add_argument('--filename', type=str, help='file path for the recording')
     args = argparser.parse_args()
+
+    args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent1/experiments/obs_4_route_short/80p_ResNet152_local_cont/PX2_20_Safety_True_noise_True/logs/1506_log.log'
 
     try:
         client = carla.Client(args.host, args.port)
@@ -44,7 +47,7 @@ def main():
         client.set_replayer_ignore_hero(args.ignore_hero)
 
         # replay the session
-        print(client.replay_file(args.recorder_filename, args.start, args.duration, args.camera))
+        print(client.replay_file(args.filename, args.start, args.duration, args.camera))
     finally:
         pass
 

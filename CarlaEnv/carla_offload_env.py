@@ -122,7 +122,8 @@ class CarlaOffloadEnv(gym.Env):
 
             # reload the map
             if params['carla_map'] is not None:
-                world = self.client.load_world(params['carla_map'])
+                world = self.client.load_world(params['carla_map'], carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
+                world.unload_map_layer(carla.MapLayer.All)
             if params['weather'] is not None:
                 if not hasattr(carla.WeatherParameters, params['weather']):
                     print('ERROR: weather preset %r not found.' % params['weather'])
@@ -145,23 +146,22 @@ class CarlaOffloadEnv(gym.Env):
                 self.world.apply_settings(settings)
 
             # Get spawn location
-            start_index, end_index, road_option_count = 0,0,0
-            if track == 1:
-                start_index = 46
-                end_index   = 205           # These spawn positions are on the lane path [3,7,46,69,197,205,239]
-                road_option_count = 1
-            lap_start_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[start_index].location)
+            start_index, end_index, road_option_count = 0,0,1
+            start_wp_transform = carla.Transform(carla.Location(x=406.024902, y=-124.677002, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
+            end_wp_transform = carla.Transform(carla.Location(x=165.54, y=-389.14, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
 
-            # spawn_transform = lap_start_wp.transform          # Exact: Transform(Location(x=406.024902, y=-124.677002, z=0.000000), Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
-            spawn_transform = carla.Transform(carla.Location(x=406.024902, y=-124.677002, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
+            # function to get the waypoint indices of the start/end coordinates
+            # self.identify_waypoint_indices()
+
+            lap_start_wp = self.world.map.get_waypoint(start_wp_transform.location)
+            lap_end_wp = self.world.map.get_waypoint(end_wp_transform.location)
+
+            spawn_transform = lap_start_wp.transform          
             spawn_transform.location += carla.Location(z=1.0)
-
-            lap_end_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[end_index].location)
             spawn_transform_end = lap_end_wp.transform
             spawn_transform_end.location += carla.Location(z=1.0)
             self.route_waypoints = compute_route_waypoints(self.world.map, lap_start_wp, lap_end_wp, resolution=1.0,
-                                                           plan=[
-                                                               RoadOption.STRAIGHT]*road_option_count)  # + [RoadOption.RIGHT] * 2 + [RoadOption.STRAIGHT] * 5)
+                                                           plan=[RoadOption.STRAIGHT]*road_option_count)  # + [RoadOption.RIGHT] * 2 + [RoadOption.STRAIGHT] * 5)
             if params["len_route"] == 'short':
                 self.route_waypoints = self.route_waypoints[:int(len(self.route_waypoints)//4)]
             elif params["len_route"] == 'medium':
@@ -270,7 +270,7 @@ class CarlaOffloadEnv(gym.Env):
                 print("create obstacles")
                 print("current len_obstacles", len(self.obstacles), "out of requested", self.len_obs)
                 if self.track == 1:
-                    spawn_idx = random.randint(self.obs_start_idx-10, self.obs_start_idx+10)
+                    spawn_idx = random.randint(self.obs_start_idx-5, self.obs_start_idx+5)
                 spawn_transform = self.route_waypoints[spawn_idx][0].transform
                 spawn_transform.rotation = carla.Rotation(yaw=spawn_transform.rotation.yaw-270)                 # 180 for pedestrians; 270 for prop gonmes
                 if not (self.model_name.startswith('agent') or self.model_name.startswith('casc_agent')):
@@ -447,7 +447,7 @@ class CarlaOffloadEnv(gym.Env):
             return self.observation_display
 
     def ego_pos_randomize(self):
-        if random.random() <= 0.05:         
+        if random.random() <= 0:#0.5:         
             print("normal run")
             return
         while True:
@@ -456,12 +456,18 @@ class CarlaOffloadEnv(gym.Env):
             rotation = transform.rotation
             print('randomizing..')
             min_distance = 10000
-            if random.random() < 0.5:
+            if random.random() < 0.3:
                 x = random.randrange(-4, 1, 1)          # randrange: lower bound included, upper bound not included
             else:
                 x = random.randrange(1, 8, 1)
             y = random.randrange(-50, 1, 5)
-            yaw = random.randrange(-45, 46, 10)
+            y = 0
+            if x in (-1,0,1):
+                yaw = random.randrange(-45, 46, 10)
+            elif x > 1:
+                yaw = random.randrange(1, 46)
+            elif x < -1:
+                yaw = random.randrange(-45, -1)
             # if x > 0:
             #     yaw = random.randrange(5, 46, 10)
             # elif x < 0:
@@ -494,6 +500,27 @@ class CarlaOffloadEnv(gym.Env):
         psi = player_transform.rotation.yaw * math.pi/180
         self.xi = math.atan2(player_transform.location.y- obstacle_location.y, player_transform.location.x- obstacle_location.x) - psi
         self.xi = math.atan2(math.sin(self.xi), math.cos(self.xi))
+
+    def identify_waypoint_indices(self):
+            bests = []
+            # desired_pos = carla.Transform(carla.Location(x=406.024902, y=-124.677002, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
+            desired_pos = carla.Transform(carla.Location(x=165.54, y=-389.14, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
+            # desired_pos = carla.Transform(carla.Location(x=369.83, y=-334.01, z=0.000000), carla.Rotation(pitch=360.000000, yaw=270.598602, roll=0.000000))
+            min_dist = 10000
+            try:
+                for i in range(0,10000):
+                    current_wp = self.world.map.get_waypoint(self.world.map.get_spawn_points()[i].location)
+                    # print(current_wp)
+                    d = self.rv_estimator(desired_pos, current_wp.transform.location)
+                    if d < min_dist:
+                        min_dist = d
+                        print("update d")
+                        print(current_wp.transform.location)
+                        bests.append((i, current_wp.transform.location, d))
+                    print(i, d)
+            except IndexError:
+                pass
+            exit()        
 
     def step(self, action):         
         self.steer_diff = 0.0
@@ -777,7 +804,7 @@ class CarlaOffloadEnv(gym.Env):
         elif "Prop" in obstacle_name:
             print("Hit a Prop Gnome!")
             self.obstacle_hit = True
-        elif "Fence" in obstacle_name or "Guardrail" in obstacle_name:
+        elif "Fence" in obstacle_name or "Guardrail" in obstacle_name or "Pole" in obstacle_name:
             print("Hit a curb")
             self.curb_hit = True
         self.terminal_state = True
