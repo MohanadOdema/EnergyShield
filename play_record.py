@@ -34,7 +34,7 @@ def main():
     argparser.add_argument('--filename', type=str, help='file path for the recording')
     args = argparser.parse_args()
 
-    args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent1/experiments/obs_4_route_short/80p_ResNet152_local_cont/PX2_20_Safety_True_noise_True/logs/1506_log.log'
+    args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent3/experiments/obs_4_route_short/80p_ResNet152_local_cont/PX2_20_Safety_True_noise_False/logs/1645_log.log'
 
     try:
         client = carla.Client(args.host, args.port)

@@ -115,6 +115,7 @@ def reward_speed_centering_angle_add(env):
         dist_obstacle_factor = max(min(env.r / 20, 1.0), 0.0)
     # Final reward
     reward1 = (3 * speed_reward)+ (10* centering_factor) + (3 * angle_factor) + (2 * dist_obstacle_factor)
+    reward1 = (0.3 * speed_reward)+ (1* centering_factor) + (0.3 * angle_factor) + (0.2 * dist_obstacle_factor)
     reward2 = speed_reward + centering_factor + angle_factor + steer_diff_factor + dist_obstacle_factor
 
     return reward1, reward2

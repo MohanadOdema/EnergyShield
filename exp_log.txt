@@ -1,4 +1,14 @@
-10/05 -- 22:25
+10/09 -- 1:15
+
+1st set of experiments for casc_agent1 in test_script.sh - success. Now retraining to repeat for the two other agents.
+
+Script used to retrain the agents after random respawning
+python run.py --model_name casc_agent2 -obstacle --len_obs 4 --offload_policy local --deadline 100 --phi_scale 10 --srate 900 --obs_start_idx 20 --num_episodes 150 -penalize_dist_obstacle --len_route short --spawn_random --reward reward_speed_centering_angle_add
+
+----------------------------------------------------------
+Important (Conclusion:) Testing using the 1484 casc_agent1 controller om medium route, len_5, obs_start_20, has led to good results for safety filter ungaussian, but still has errors gaussian.
+----------------------------------------------------------
+10/05 -- 22:25 (Conclusion -- all performed really bad, worse than the original, they learnt to go the extreme right and became super aggressive on speed)
 
 Local (multiplicative reward)
 

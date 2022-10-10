@@ -456,10 +456,17 @@ class CarlaOffloadEnv(gym.Env):
             rotation = transform.rotation
             print('randomizing..')
             min_distance = 10000
-            if random.random() < 0.3:
+            prob = random.random()
+            # if random.random() < 0.3:
+            #     x = random.randrange(-4, 1, 1)          # randrange: lower bound included, upper bound not included
+            # else:
+            #     x = random.randrange(1, 8, 1)
+            if prob < 0.33:
                 x = random.randrange(-4, 1, 1)          # randrange: lower bound included, upper bound not included
+            elif prob > 0.33 and prob < 0.66:
+                x = random.randrange(1, 6, 1)
             else:
-                x = random.randrange(1, 8, 1)
+                x = random.randrange(6, 8, 1)
             y = random.randrange(-50, 1, 5)
             y = 0
             if x in (-1,0,1):

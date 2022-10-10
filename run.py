@@ -514,7 +514,7 @@ if __name__ == "__main__":
 
     # Training parameters
     parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name") #choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'casc_agent4', 'BasicAgent', 'BehaviorAgent'])
-    parser.add_argument("--reward_fn", type=str, default="reward_speed_centering_angle_multiply", help="Reward function to usfe. See reward_functions.py for more info.")
+    parser.add_argument("--reward_fn", type=str, default="reward_speed_centering_angle_add", help="Reward function to usfe. See reward_functions.py for more info.")
     parser.add_argument("--seed", type=int, default=0, help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed with this option in our experience)")
     parser.add_argument("--eval_interval", type=int, default=100, help="Number of episodes between evaluation runs")
     parser.add_argument("-record_eval", action="store_true", default=False, help="If True, save videos of evaluation episodes to models/model_name/videos/")
@@ -522,7 +522,7 @@ if __name__ == "__main__":
     # Safety Filter Setting
     parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
     parser.add_argument("-penalize_steer_diff", action="store_true", default=False, help="Penalize RL's steering output and filter's output")
-    parser.add_argument("-penalize_dist_obstacle", action="store_true", default=False, help="Add a penalty when the RL agent gets closer to an obstacle")
+    parser.add_argument("-penalize_dist_obstacle", action="store_true", default=True, help="Add a penalty when the RL agent gets closer to an obstacle")
     parser.add_argument("-obstacle", action="store_true", default=False, help="Add obstacles")
     parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
     parser.add_argument("--track", type=int, default=1, help="Track Number")
@@ -586,7 +586,7 @@ if __name__ == "__main__":
     if params["display_off"]:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
 
-    assert params["hold_det_img"] is True and params["hold_vae_img"] is False
+    assert params["hold_det_img"] is True and params["hold_vae_img"] is False and params['penalize_dist_obstacle'] is True
 
     # Remove a couple of parameters that we dont want to log
     start_carla = params["start_carla"]; del params["start_carla"]
