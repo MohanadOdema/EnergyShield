@@ -127,7 +127,8 @@ class CarlaOffloadEnv(gym.Env):
             # reload the map
             if params['carla_map'] is not None:
                 world = self.client.load_world(params['carla_map'], carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
-                world.unload_map_layer(carla.MapLayer.All)
+                # world.unload_map_layer(carla.MapLayer.All)
+                world.unload_map_layer(carla.MapLayer.Walls)
             if params['weather'] is not None:
                 if not hasattr(carla.WeatherParameters, params['weather']):
                     print('ERROR: weather preset %r not found.' % params['weather'])
