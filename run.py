@@ -193,7 +193,7 @@ def train(params, start_carla=True, restart=False):
     train_data_path = os.path.join(subdirs_path, "train_data.csv")
     valid_data_path = os.path.join(subdirs_path, "valid_data.csv")
 
-    initial_row = ['episode_idx', 'reward','obstacle_hit', 'curb_hit', 'dist_traveled', 'dist_to_obstacle', 'avg_speed', 'avg_center_deviance',
+    initial_row = ['episode_idx', 'ticks', 'reward','obstacle_hit', 'curb_hit', 'dist_traveled', 'dist_to_obstacle', 'avg_speed', 'avg_center_deviance',
                     'avg_latency', 'avg_energy', 'missed_windows', 'missed_deadlines', 'missed_controls', 'max_succ_interrupts', 'missed_offloads', 'misguided_energy']
     if not os.path.exists(train_data_path):
         with open(train_data_path, 'a', newline='') as fd:
@@ -216,6 +216,7 @@ def train(params, start_carla=True, restart=False):
                 env_seed = episode_idx
             state, terminal_state, total_reward = env.reset(is_training=not test, seed=env_seed), False, 0   
             # state is the 64-dim encoder output + 5 measurements to include
+            ticks = 0
             if record_eval and env.display is not None:
                 rendered_frame = env.render(mode="rgb_array")
                 video_filename = os.path.join(model.video_dir, "episode{}.avi".format(episode_idx))
@@ -251,7 +252,7 @@ def train(params, start_carla=True, restart=False):
                 print("Episode {}".format(episode_idx))
             route, current_waypoint_index = None, None
 
-            plt.figure()
+            # plt.figure()
             while not terminal_state:
                 states, input_boxes, taken_actions, values, rewards, dones = [], [], [], [], [], []
                 for _ in range(horizon):               # number of steps to simulate per training step (128)
@@ -294,13 +295,14 @@ def train(params, start_carla=True, restart=False):
                             min_score_thresh=.50,
                             agnostic_mode=False)
 
-                    plt.imshow(image_np_with_detections)
+                    # plt.imshow(image_np_with_detections)
 
                     # TODO: Implement an if condition that saves an image every now and then when detecting an object
                     # plt.savefig('/home/mohanadodema/carla.png')
 
                     # Perform action
                     new_state, reward, terminal_state, info, offloading_info = env.step(action)
+                    ticks += 1
                     if info["closed"] == True:
                         exit(0)
                     env.extra_info.extend([
@@ -455,7 +457,7 @@ def train(params, start_carla=True, restart=False):
                 if video_recorder is not None:
                     video_recorder.release()
                 if (env.distance_traveled > 0.0):
-                    data_row = [episode_idx, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3), round(env.center_lane_deviation/env.step_count, 3), 
+                    data_row = [episode_idx, ticks, round(env.total_reward1,3), env.obstacle_hit, env.curb_hit, round(env.distance_traveled,3), round(env.min_distance_to_obstacle, 3), round(3.6 * env.speed_accum / env.step_count, 3), round(env.center_lane_deviation/env.step_count, 3), 
                                 round(np.mean(exp_latency),3), round(np.mean(exp_energy),3), env.offloading_manager.missed_windows, env.offloading_manager.missed_deadlines, env.missed_controls, env.offloading_manager.max_succ_interrupts, env.offloading_manager.missed_offloads, env.offloading_manager.misguided_energy]
                     if test:
                         with open(valid_data_path, 'a', newline='') as fd:
@@ -518,6 +520,8 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0, help="Seed to use. (Note that determinism unfortunately appears to not be garuanteed with this option in our experience)")
     parser.add_argument("--eval_interval", type=int, default=100, help="Number of episodes between evaluation runs")
     parser.add_argument("-record_eval", action="store_true", default=False, help="If True, save videos of evaluation episodes to models/model_name/videos/")
+    parser.add_argument("--min_speed", type=int, default=35, help="min speed for reward function in km/hr")
+    parser.add_argument("--max_speed", type=int, default=45, help="max speed for reward function in km/hr")
 
     # Safety Filter Setting
     parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
@@ -553,7 +557,7 @@ if __name__ == "__main__":
 
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
-    parser.add_argument("--estimation_fn", type=str, default='avg', help="vehicle estimation function of the network conditions")
+    parser.add_argument("--estimation_fn", type=str, default='worst', help="vehicle estimation function of the network conditions")
     parser.add_argument("--phi_scale", type=float, default=20, help="scale parameter for the channel capacity pdf")
     parser.add_argument("--phi_shift", type=float, default=0, help="shift parameter for the channel capacity pdf")
     parser.add_argument("--rtt_dist", type=str, default='gamma', help="use gamma or rayleigh pdf for rtt", choices=['rayleigh', 'gamma'])
@@ -565,7 +569,7 @@ if __name__ == "__main__":
     parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')
 
     # Carla Config file
-    parser.add_argument("--carla_map", type=str, default='Town04_OPT', help="load map")
+    parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
     parser.add_argument("-display_off", action='store_true', help='Turn off display running experiments on the server')

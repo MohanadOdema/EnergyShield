@@ -82,6 +82,10 @@ class CarlaOffloadEnv(gym.Env):
         self.hold_vae_img           = params["hold_vae_img"]
         self.cont_control           = params["cont_control"]
         self.spawn_random           = params["spawn_random"]
+        self.min_speed              = params["min_speed"]
+        self.max_speed              = params["max_speed"]
+        self.target_speed           = ((self.min_speed + self.max_speed) // 2)
+        assert type(self.target_speed) is int
 
         self.offloading_manager = OffloadingManager(params)
         self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
@@ -447,7 +451,7 @@ class CarlaOffloadEnv(gym.Env):
             return self.observation_display
 
     def ego_pos_randomize(self):
-        if random.random() <= 0:#0.5:         
+        if random.random() <= 0.5:#0.5:         
             print("normal run")
             return
         while True:
@@ -467,14 +471,14 @@ class CarlaOffloadEnv(gym.Env):
                 x = random.randrange(1, 6, 1)
             else:
                 x = random.randrange(6, 8, 1)
-            y = random.randrange(-50, 1, 5)
+            # y = random.randrange(-50, 1, 5)
             y = 0
             if x in (-1,0,1):
                 yaw = random.randrange(-45, 46, 10)
             elif x > 1:
-                yaw = random.randrange(1, 46)
+                yaw = random.randrange(5, 46, 10)
             elif x < -1:
-                yaw = random.randrange(-45, -1)
+                yaw = random.randrange(-45, -1, 10)
             # if x > 0:
             #     yaw = random.randrange(5, 46, 10)
             # elif x < 0:

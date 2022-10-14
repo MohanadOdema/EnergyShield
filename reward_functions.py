@@ -84,8 +84,8 @@ def reward_speed_centering_angle_add(env):
                + angle factor (1 when aligned with the road, 0 when more than 20 degress off)
     """
 
-    min_speed = 35.0 # km/h
-    max_speed = 45.0 # km/h
+    min_speed = env.min_speed # 35.0 # km/h
+    max_speed = env.max_speed # 45.0 # km/h
 
     # Get angle difference between closest waypoint and vehicle forward vector
     fwd    = vector(env.vehicle.get_velocity())
@@ -95,9 +95,9 @@ def reward_speed_centering_angle_add(env):
     speed_kmh = 3.6 * env.vehicle.get_speed()
     if speed_kmh < min_speed:                     # When speed is in [0, min_speed] range
         speed_reward = speed_kmh / min_speed      # Linearly interpolate [0, 1] over [0, min_speed]
-    elif speed_kmh > target_speed:                # When speed is in [target_speed, inf]
+    elif speed_kmh > env.target_speed:                # When speed is in [target_speed, inf]
                                                   # Interpolate from [1, 0, -inf] over [target_speed, max_speed, inf]
-        speed_reward = 1.0 - (speed_kmh-target_speed) / (max_speed-target_speed)
+        speed_reward = 1.0 - (speed_kmh-env.target_speed) / (max_speed-env.target_speed)
     else:                                         # Otherwise
         speed_reward = 1.0                        # Return 1 for speeds in range [min_speed, target_speed]
 
@@ -113,9 +113,9 @@ def reward_speed_centering_angle_add(env):
     dist_obstacle_factor = 1.0
     if env.obstacle_en and env.penalize_dist_obstacle:
         dist_obstacle_factor = max(min(env.r / 20, 1.0), 0.0)
-    # Final reward
-    reward1 = (3 * speed_reward)+ (10* centering_factor) + (3 * angle_factor) + (2 * dist_obstacle_factor)
-    reward1 = (0.3 * speed_reward)+ (1* centering_factor) + (0.3 * angle_factor) + (0.2 * dist_obstacle_factor)
+    # Final reward 
+    reward1 = (1 * speed_reward)+ (10* centering_factor) + (3 * angle_factor) + (2 * dist_obstacle_factor)          # initially speed reward was 3 
+    reward1 = (0.1 * speed_reward)+ (1* centering_factor) + (0.3 * angle_factor) + (0.2 * dist_obstacle_factor)     # initially speed reward was 0.3
     reward2 = speed_reward + centering_factor + angle_factor + steer_diff_factor + dist_obstacle_factor
 
     return reward1, reward2
