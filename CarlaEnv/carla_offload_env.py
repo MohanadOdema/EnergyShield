@@ -13,14 +13,15 @@ from gym.utils import seeding
 from pygame.locals import *
 import numpy as np
 from collections import deque
+from energyShieldDeltaT import energyShieldDeltaT
 
 from hud import HUD
 from planner import RoadOption, compute_route_waypoints
 from wrappers import *
 from offloading_utils import *
 from agents.navigation import *
-# from .navigation.behavior_agent import BehaviorAgent
 from OD_utils import *
+from energyShieldDeltaT import energyShieldDeltaT
 import cv2
 import math
 
@@ -68,7 +69,7 @@ class CarlaOffloadEnv(gym.Env):
         self.penalize_steer_diff    = penalize_steer_diff
         self.steer_diff_avg         = 0
         self.apply_filter_counter   = 0
-        self.steer_cap              = 0.6428
+        self.steer_cap              = 0.97026 # 0.6428
         self.agent                  = None
         self.model_name             = model_name
         self.display                = None
@@ -87,6 +88,7 @@ class CarlaOffloadEnv(gym.Env):
         self.target_speed           = ((self.min_speed + self.max_speed) // 2)
         assert type(self.target_speed) is int
 
+        self.energyShieldDeltaT = energyShieldDeltaT('./energyShieldPyLUT_sigma=0.28_rbar=4_lr=1.6_df=1.1854_vmax=12.p')
         self.offloading_manager = OffloadingManager(params)
         self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
         if params['rtt_dist'] == 'gamma':
@@ -127,8 +129,8 @@ class CarlaOffloadEnv(gym.Env):
             # reload the map
             if params['carla_map'] is not None:
                 world = self.client.load_world(params['carla_map'], carla.MapLayer.Buildings | carla.MapLayer.ParkedVehicles)
-                # world.unload_map_layer(carla.MapLayer.All)
-                world.unload_map_layer(carla.MapLayer.Walls)
+                world.unload_map_layer(carla.MapLayer.All)
+                # world.unload_map_layer(carla.MapLayer.Walls)
             if params['weather'] is not None:
                 if not hasattr(carla.WeatherParameters, params['weather']):
                     print('ERROR: weather preset %r not found.' % params['weather'])
@@ -532,7 +534,12 @@ class CarlaOffloadEnv(gym.Env):
                     print(i, d)
             except IndexError:
                 pass
-            exit()        
+            exit()    
+
+    def computeBeta(self, control):
+        steer_to_angle = 1.22173
+        delta = control.steer * steer_to_angle
+        return math.atan(0.5 * math.tan(delta))
 
     def step(self, action):         
         self.steer_diff = 0.0
@@ -556,8 +563,8 @@ class CarlaOffloadEnv(gym.Env):
 
         if self.obstacle_en:
             self.obstacle_state_estimator(self.vehicle.get_transform(), self.obstacles[self.obstacle_counter].get_transform().location, self.vehicle.get_speed())
-        #print("xi", self.xi)
-        #print("r", self.r)
+        # print("xi: ", self.xi)
+        # print("r (pure): ", self.r)
         # Take action
         rl_steer = -1000
         rl_throttle = -1000
@@ -584,15 +591,18 @@ class CarlaOffloadEnv(gym.Env):
             else:
                 self.missed_controls += 1
             if self.safety_filter is not None:
-                self.safety_filter.set_filter_inputs(self.xi, self.r)          # shield needs to take the input readings either way
+                self.safety_filter.set_filter_inputs(self.xi, self.r-2)          # shield needs to take the input readings either way (-0.5 so as not to cross the barrier)
                 self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
                 if filter_applied:
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
-            if 'Shield' in self.offloading_manager.offload_policy and (self.offloading_manager.rx_flag or self.offloading_manager.belaying):         # either when you receive the output and state. 
+            if 'Shield' in self.offloading_manager.offload_policy and (self.offloading_manager.rx_flag or self.offloading_manager.belaying):
                 if self.offloading_manager.rx_flag:                          # TODO: Verify when you get the table
-                    self.delta_T = output_delta_T(self.vehicle.control)      # sample new delta_T 
-                    print(f"delta_T: {self.delta_T} windows")
+                    Beta = self.computeBeta(self.vehicle.control)
+                    self.delta_T = round(self.energyShieldDeltaT.deltaT(r, xi, Beta) * 1000, 3)      # sample new delta_T in ms
+                    # print(f"r: {r:.3f}, xi: {xi:.3f}, steer_beta: {Beta:.3f}")
+                    # print(f"delta_T: {self.delta_T} ms")
+                    # exit(0)
 
         rl_steer = self.vehicle.control.steer
         rl_throttle = self.vehicle.control.throttle
@@ -636,6 +646,9 @@ class CarlaOffloadEnv(gym.Env):
             self.que_list.append(self.channel_params['que_true'])
                 
         self.offloading_manager.determine_offloading_decision(self.channel_params, self.delta_T, self.initialize)
+
+        # print(f"delta_T in {self.offloading_manager.time_window} windows: {self.offloading_manager.delta_T}")
+        # print(f"Offloading action: {self.offloading_manager.selected_action}\n")
 
         # Get most recent observation and viewer image (or hold if in transit/belay)
         self.current_observation = self._get_observation()

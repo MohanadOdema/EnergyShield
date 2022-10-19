@@ -1,3 +1,20 @@
+10/18
+Carla1 on aicps server running csac_agent_AA w/ 200 penalty -- gpu 0
+Carla2 on aicps server running csac_agent_A w/ 100 penalty --gpu 1
+
+Shield always hits the curb after the last object -- options include reducing distance by 1.5 -- removing curbs -- decreasing objects -- ask about the angle
+
+10/18 -- models from server
+- casc_model_C is the one with 55-65 km/hr speed 	carla7 (each was taking two gpus)
+- casc_model_B is the one with 45-55 km/hr speed 	carla5
+- casc_model_A is the one with 35-45 km/hr speed 	carla3
+ 
+ 10/18 -- models from our server
+ - casc_model_AA is the same as A with penalty 500
+ - casc_model_CC is the same as B with penalty 500
+
+__________________________________________________
+
 10/14 -- 1:00 am
 
 - I changed the weight of the speed componenet in the reward to be quivalent to that of the centering.

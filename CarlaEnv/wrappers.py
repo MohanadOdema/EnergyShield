@@ -251,6 +251,8 @@ class Vehicle(CarlaActorBase):
         # Create vehicle actor
         actor = world.spawn_actor(vehicle_bp, transform)
         print("Spawned actor \"{}\"".format(actor.type_id))
+        # print(actor.get_physics_control())
+        # exit()
 
         super().__init__(world, actor)
 
@@ -356,8 +358,8 @@ class SafetyFilter():
         self.r      = None
         self.psi    = None
         self.xi     = None
-        self.sigma = 0.48
-        self.l_r  = 2
+        self.sigma = 0.28 # 0.48
+        self.l_r  = 1.6 # 2
         self.rBar = 4
         self.steer_to_angle = 1.22173
 
@@ -373,11 +375,11 @@ class SafetyFilter():
         self.beta = math.atan(0.5 * math.tan(delta))
         input = np.array([[[self.xi, self.beta]]])
         input = input.astype(np.float32)
-        if self.r > self.barrier()+ 0.6: 
+        if self.r > self.barrier()+ 0.5:  # 0.6
             return control, 0, False
-        elif self.r > self.barrier() + 0.5:
+        elif self.r > self.barrier() + 0.4:     # 0.5
             output = self.tf_model3.predict(input)[0][0][0]
-        elif self.r > self.barrier() + 0.25:
+        elif self.r > self.barrier() + 0.2:     # 0.25
             output = self.tf_model2.predict(input)[0][0][0]
         else:
             output = self.tf_model1.predict(input)[0][0][0]

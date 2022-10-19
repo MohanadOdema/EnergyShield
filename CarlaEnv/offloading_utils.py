@@ -94,7 +94,7 @@ class OffloadingManager():
         self.bottleneck_ch          = params["bottleneck_ch"]
         self.bottleneck_quant       = params["bottleneck_quant"]
         self.scale                  = params["noise_scale"]
-        self.disc_deadline          = self.discretize_deadline()
+        self.disc_deadline          = self.discretize_deadline(self.deadline)
         self.input_size             = self.compute_input_size()
         self.bottleneck_size        = self.compute_bottleneck_size()
         self.full_local_latency     = full_local_latency[self.img_resolution][self.HW][self.arch]
@@ -142,9 +142,9 @@ class OffloadingManager():
         self.current_que_latency    = 0
         self.current_rtt2_latency   = 0
 
-    def determine_offloading_decision(self, channel_params, delta_T=None, initialize=False):
+    def determine_offloading_decision(self, channel_params, delta_T_ms=None, initialize=False):
         self.initialize = initialize
-        self.delta_T = delta_T if delta_T is not None else self.disc_deadline
+        self.delta_T = self.discretize_deadline(delta_T=delta_T_ms) if delta_T_ms is not None else self.disc_deadline
         self.rx_flag = False                                       # reset every time window
         self.process_current = False                               # This is needed for holding the detection images
         if self.transit_flag and not self.end_tx_flag:             # This is only for the offloading actions
@@ -204,6 +204,7 @@ class OffloadingManager():
             self.current_tx_latency, self.current_rtt1_latency, self.current_que_latency = 0, 0, 0
             rem_rtt2 = self.rem_val # remeber to divide by 2 in the argument or return
             rem_off_latency = rem_rtt2
+        # print(f"transit_window: {self.transit_window}, offloading_energy: {round(rem_off_energy,2)} (local: 0)")
         return rem_off_latency, rem_off_energy
 
     def evaluate(self, phi, rtt, que, probe=False):   
@@ -220,7 +221,8 @@ class OffloadingManager():
             latency, energy = self.est_off_latency, self.est_off_energy
         else:
             latency, energy = self.true_off_latency, self.true_off_energy
-        if self.offload_policy == 'Shield' or 'failsafe' in self.offload_policy:              
+            # print(f"transit_window: {self.transit_window}, offloading_energy: {round(energy,2)} (local: 113.5)")
+        if self.offload_policy == 'Shield' or 'failsafe' in self.offload_policy:            
             if (energy < self.full_local_energy) and ((latency < (self.delta_T - 1) * self.time_window)):    # recovery window enforced
                 return 1 
         else:
@@ -419,13 +421,13 @@ class OffloadingManager():
             self.deadline = self.full_local_latency
             print("Deadline modified to the local execution latency: ", self.full_local_latency)
 
-    def discretize_deadline(self):
-        if self.deadline % self.time_window != 0:     # Deadline multiple of time windows of 20 ms
-            print(f"Deadline modified: {self.deadline} --> {(self.deadline//self.time_window)*self.time_window}")
-            self.deadline = (self.deadline//self.time_window)*self.time_window
-            if self.deadline < self.time_window:
-                raise ValueError("Not enough time windows to meet the deadline!")
-        return self.deadline // self.time_window
+    def discretize_deadline(self, delta_T):
+        if delta_T % self.time_window != 0:     # Deadline multiple of time windows of 20 ms
+            print(f"Deadline modified: {delta_T} --> {(delta_T//self.time_window)*self.time_window}")
+        delta_T = max(self.time_window, (delta_T//self.time_window)*self.time_window)
+        # if delta_T < self.time_window:
+        #     raise ValueError("Not enough time windows to meet the deadline!")
+        return delta_T // self.time_window
 
 #===============================================================================
 # Original Throughput Sampler Implementation

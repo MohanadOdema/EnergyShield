@@ -48,11 +48,11 @@ def create_reward_fn(reward_fn, max_speed=-1):
         else:
             low_speed_timer = 0.0
             if env.track_completed:
-                reward1 += 500 #100
-                reward2 += 500 #100
+                reward1 += 100#500 #100
+                reward2 += 100#500 #100
             else:
-                reward1 -= 500 #100
-                reward2 -= 500 #100
+                reward1 -= 100#500 #100
+                reward2 -= 100#500 #100
 
         if env.terminal_state:
             env.extra_info.extend([
@@ -114,8 +114,8 @@ def reward_speed_centering_angle_add(env):
     if env.obstacle_en and env.penalize_dist_obstacle:
         dist_obstacle_factor = max(min(env.r / 20, 1.0), 0.0)
     # Final reward 
-    reward1 = (1 * speed_reward)+ (10* centering_factor) + (3 * angle_factor) + (2 * dist_obstacle_factor)          # initially speed reward was 3 
-    reward1 = (0.1 * speed_reward)+ (1* centering_factor) + (0.3 * angle_factor) + (0.2 * dist_obstacle_factor)     # initially speed reward was 0.3
+    reward1 = (5 * speed_reward)+ (10* centering_factor) + (3 * angle_factor) + (2 * dist_obstacle_factor)          # initially speed reward was 3 
+    reward1 = (0.5 * speed_reward)+ (1* centering_factor) + (0.3 * angle_factor) + (0.2 * dist_obstacle_factor)     # initially speed reward was 0.3
     reward2 = speed_reward + centering_factor + angle_factor + steer_diff_factor + dist_obstacle_factor
 
     return reward1, reward2

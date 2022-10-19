@@ -34,6 +34,7 @@ parser.add_argument("--local_early", action='store_true', default=False, help="i
 parser.add_argument("--off_belay", action='store_true', default=False, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )  
 parser.add_argument("--file_type", type=str, default='valid', help="The csv file to load")      
 parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
+parser.add_argument("--map", type=str, default='80p', help="80p, Town04, or Town04_OPT")
 
 params = vars(parser.parse_args())
 
@@ -50,7 +51,7 @@ else:
     sup_string = 'early'
 
 
-csv_file_path = os.path.join("./models", params['model_name'], "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), "80p_ResNet152_"+str(params['offload_policy'])+"_"+sup_string, 
+csv_file_path = os.path.join("./models", params['model_name'], "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), str(params['map'])+"_ResNet152_"+str(params['offload_policy'])+"_"+sup_string, 
 							"PX2_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']), str(params['file_type'])+"_data.csv")
 
 

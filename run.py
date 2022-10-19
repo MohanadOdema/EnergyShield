@@ -99,7 +99,7 @@ def train(params, start_carla=True, restart=False):
     else:
         sup_string = 'early'
 
-    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['img_resolution'] +"_"+ params['arch'] +"_"+ params['offload_policy'] +"_"+ sup_string, params['HW']+"_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']))
+    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['carla_map'] +"_"+ params['arch'] +"_"+ params['offload_policy'] +"_"+ sup_string, params['HW']+"_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']))
 
     # Set seeds
     if isinstance(seed, int):
@@ -283,17 +283,17 @@ def train(params, start_carla=True, restart=False):
 
                     image_np_with_detections = env.observation.copy()
 
-                    # if env.offloading_manager.rx_flag is True:
-                    viz_utils.visualize_boxes_and_labels_on_image_array(
-                            image_np_with_detections,
-                            np.squeeze(detections['detection_boxes']),
-                            np.squeeze(detections['detection_classes']),
-                            np.squeeze(detections['detection_scores']),
-                            category_index,
-                            use_normalized_coordinates=True,
-                            max_boxes_to_draw=200,
-                            min_score_thresh=.50,
-                            agnostic_mode=False)
+                    if params['viz_utils']:
+                        viz_utils.visualize_boxes_and_labels_on_image_array(
+                                image_np_with_detections,
+                                np.squeeze(detections['detection_boxes']),
+                                np.squeeze(detections['detection_classes']),
+                                np.squeeze(detections['detection_scores']),
+                                category_index,
+                                use_normalized_coordinates=True,
+                                max_boxes_to_draw=200,
+                                min_score_thresh=.50,
+                                agnostic_mode=False)
 
                     # plt.imshow(image_np_with_detections)
 
@@ -443,6 +443,11 @@ def train(params, start_carla=True, restart=False):
             completed_x = [x.transform.location.x for (x,_) in completed_route]
             completed_y = [x.transform.location.y for (x,_) in completed_route]
 
+            if params['offload_policy'] == 'Shield':
+                print(f"Shield Energy: {round(np.mean(exp_energy),3)} compared to local energy: 113.5")
+                print(f"% change = {round((np.mean(exp_energy) - 113.5)/113.5, 3)} \n\n ")
+                exit()
+
             if not params["no_save"]:
 
                 plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
@@ -569,17 +574,18 @@ if __name__ == "__main__":
     parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')
 
     # Carla Config file
-    parser.add_argument("--carla_map", type=str, default='Town04_OPT', help="load map")
+    parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
     parser.add_argument("-display_off", action='store_true', help='Turn off display running experiments on the server')
     parser.add_argument("--port", type=int, default=2000, help='set the port for communicating with the host in case of server operation')
+    parser.add_argument("--viz_utils", default=True, help="ignore viz utils to avoid correcting on the server")
 
     # Additional Carla Offloading env options
     parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
     parser.add_argument("--len_obs", type=int, default=1, help="How many objects to be spawned given len_route is satisfied")
     parser.add_argument("--obs_step", type=int, default=0, help="Objects distribution along the route after the first one")
-    parser.add_argument("--obs_start_idx", type=int, default=30, help="spawning index of first obstacle")
+    parser.add_argument("--obs_start_idx", type=int, default=40, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
     parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
 
