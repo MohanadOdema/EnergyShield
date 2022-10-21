@@ -71,7 +71,7 @@ if [ "$SERVER" = "server" ]; then
 	sudo -u $USER /usr/local/bin/charming /home/$USER/tools/FastBATLLNN/FastBATLLNNServer.py &> "/home/$USER/results/FastBATLLNN_server_log.out" &
 fi
 
-sudo -u $USER /usr/local/bin/bk /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound
+sudo -u $USER /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound &
 
 
 if [ "$INTERACTIVE" = "-d" ]; then
