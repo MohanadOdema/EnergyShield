@@ -107,6 +107,8 @@ USER root
 RUN update-alternatives --install /usr/bin/clang++ clang++ /usr/lib/llvm-8/bin/clang++ 180
 RUN update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang 180
 
+RUN cd /home/${USER_NAME}/TensorFlow/models && python3.10 -m pip install research
+
 USER ${USER_NAME}
 RUN cd /home/${USER_NAME}/carla && make PythonAPI ARGS="--python-version=3.10"
 
