@@ -10,6 +10,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SYSTEM_TYPE=$(uname)
 PORT=5000
 HTTPPORT="3000-3002"
+GPUS="--gpus all"
 INTERACTIVE="-d"
 SERVER="run"
 ATTACH=""
@@ -25,7 +26,7 @@ for argwhole in "$@"; do
     val=$(printf "=%s" "${array[@]:1}")
     val=${val:1}
     case "$arg" in
-        --gpu) GPUS="--gpus all";;
+        --no-gpu) GPUS="";;
         --ssh-port) PORT=`echo "$val" | sed -e 's/[^0-9]//g'`;;
         --carla-port) HTTPPORT=`echo "$val" | sed -e 's/[^0-9\-]//g'`;;
         --interactive) INTERACTIVE="-it" && ATTACH="-ai";;
