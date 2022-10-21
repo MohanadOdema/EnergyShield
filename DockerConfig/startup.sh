@@ -58,17 +58,9 @@ PYPATH="/home/$USER/tools/FastBATLLNN:/home/$USER/tools/FastBATLLNN/HyperplaneRe
 if [ "$MPIHOSTS" != "" ]; then
     echo "$MPIHOSTS" | sed -e 's/,/\
 /g' -e 's/:/    /g' >> /etc/hosts
+    echo "$MPIHOSTS" | sed -e 's/,/\
+/g' -e 's/:/    /g' >> /home/$USER/cluster_hosts.txt
     HOSTLIST=`echo "$MPIHOSTS" | sed -E -e 's/:[^:,]+/:-1/g'`
-    echo "#!/bin/bash
-mpirun $MPIARGS -mca plm_rsh_args \"-p 3000\" -np $CORES -host $HOSTLIST -x PYTHONPATH=\"$PYPATH:\$PYTHONPATH\" /usr/bin/python3.10 \"\$@\"" > /usr/local/bin/charming
-else
-    echo "#!/bin/bash
-mpirun $MPIARGS -np $CORES -x PYTHONPATH=\"$PYPATH:\$PYTHONPATH\" /usr/bin/python3.10 \"\$@\"" > /usr/local/bin/charming
-fi
-chmod 755 /usr/local/bin/charming
-
-if [ "$SERVER" = "server" ]; then
-	sudo -u $USER /usr/local/bin/charming /home/$USER/tools/FastBATLLNN/FastBATLLNNServer.py &> "/home/$USER/results/FastBATLLNN_server_log.out" &
 fi
 
 sudo -u $USER /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound &
