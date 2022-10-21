@@ -63,7 +63,7 @@ if [ "$MPIHOSTS" != "" ]; then
     HOSTLIST=`echo "$MPIHOSTS" | sed -E -e 's/:[^:,]+/:-1/g'`
 fi
 
-sudo -u $USER /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound &
+#sudo -u $USER /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound &
 
 
 if [ "$INTERACTIVE" = "-d" ]; then
