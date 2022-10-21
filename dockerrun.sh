@@ -112,7 +112,7 @@ then
 fi
 cd ..
 
-CONTAINERS=`docker container ls -a | grep fastbatllnn-run:$user | sed -e "s/[ ].*//"`
+CONTAINERS=`docker container ls -a | grep energyshield:$localuser | sed -e "s/[ ].*//"`
 EXISTING_CONTAINER=""
 for CONT in $CONTAINERS; do
     if [ `docker inspect --format='{{.Config.Labels.server}}' $CONT` = "${SERVER}" ]; then
