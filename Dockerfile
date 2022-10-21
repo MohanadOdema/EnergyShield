@@ -29,7 +29,7 @@ RUN apt-get update && \
     curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     apt -y install nodejs && \
     python3.10 -m pip install --upgrade pip && \
-    python3.10 -m pip install tensorflow-gpu scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas pygame opencv-python tensorflow_hub distro
+    python3.10 -m pip install tensorflow-gpu scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas==0.24.1 pygame opencv-python tensorflow_hub distro
 RUN npm install -g vim-language-server node-gyp tree-sitter tree-sitter-cli
 
 RUN sed -i '16i Port 5000' /etc/ssh/sshd_config
