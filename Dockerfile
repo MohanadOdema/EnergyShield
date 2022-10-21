@@ -27,9 +27,11 @@ RUN apt-get update && \
     apt-get -y upgrade && \
     apt -y install python3-pip clang-8 lld-8 bash ninja-build zlib1g-dev libjpeg-dev libtiff-dev rsync cmake gfortran libgsl-dev libfftw3-3 libfftw3-dev libsuitesparse-dev git libgmp-dev vim emacs nano screen tmux ipython3 openssh-server sudo curl psmisc locales util-linux git-lfs && \
     curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
-    apt -y install nodejs && \
-    python3.10 -m pip install --upgrade pip && \
-    python3.10 -m pip install tensorflow-gpu scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas==0.24.1 pygame opencv-python tensorflow_hub distro
+    apt -y install nodejs
+RUN dpkg -r --force-depends "python3-httplib2"
+RUN dpkg -r --force-depends "python3-pexpect"
+RUN python3.10 -m pip install --upgrade pip && \
+    python3.10 -m pip install numpy==1.22.4 tensorflow==2.9.2 tf-models-official==2.9.2 scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas pygame opencv-python tensorflow_hub distro ipython scikit_learn joblib ipykernel
 RUN npm install -g vim-language-server node-gyp tree-sitter tree-sitter-cli
 
 RUN sed -i '16i Port 5000' /etc/ssh/sshd_config
@@ -110,7 +112,7 @@ RUN update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang
 COPY --chown=${UID}:${GID} ./EnergyShield /home/${USER_NAME}/EnergyShield/EnergyShield
 COPY --chown=${UID}:${GID} ./TensorFlow /home/${USER_NAME}/TensorFlow
 
-RUN cd /home/${USER_NAME}/TensorFlow/models && python3.10 -m pip install research
+RUN cd /home/${USER_NAME}/TensorFlow/models && python3.10 -m pip install -e research
 
 USER ${USER_NAME}
 RUN cd /home/${USER_NAME}/carla && make PythonAPI ARGS="--python-version=3.10"
