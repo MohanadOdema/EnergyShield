@@ -107,7 +107,7 @@ USER root
 RUN update-alternatives --install /usr/bin/clang++ clang++ /usr/lib/llvm-8/bin/clang++ 180
 RUN update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang 180
 
-COPY --chown=${UID}:${GID} ./EnergyShield /home/${USER_NAME}/EnergyShield
+COPY --chown=${UID}:${GID} ./EnergyShield /home/${USER_NAME}/EnergyShield/EnergyShield
 COPY --chown=${UID}:${GID} ./TensorFlow /home/${USER_NAME}/TensorFlow
 
 RUN cd /home/${USER_NAME}/TensorFlow/models && python3.10 -m pip install research
