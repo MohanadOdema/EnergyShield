@@ -1,14 +1,15 @@
 #!/bin/bash
 
-user=`id -n -u`
+localuser=`id -n -u`
+user=carla
 uid=`id -u`
 gid=`id -g`
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 SYSTEM_TYPE=$(uname)
-PORT=3000
-HTTPPORT=8000
+PORT=5000
+HTTPPORT="3000-3002"
 INTERACTIVE="-d"
 SERVER="run"
 ATTACH=""
@@ -26,7 +27,7 @@ for argwhole in "$@"; do
     case "$arg" in
         --gpu) GPUS="--gpus all";;
         --ssh-port) PORT=`echo "$val" | sed -e 's/[^0-9]//g'`;;
-        --http-port) HTTPPORT=`echo "$val" | sed -e 's/[^0-9]//g'`;;
+        --carla-port) HTTPPORT=`echo "$val" | sed -e 's/[^0-9\-]//g'`;;
         --interactive) INTERACTIVE="-it" && ATTACH="-ai";;
         --server) SERVER="server";;
         --known_hosts) HOSTS="yes";;
@@ -43,11 +44,16 @@ if ! [[ $PORT =~ $re ]] ; then
     echo "error: Invalid port specified" >&2; exit 1
 fi
 PORTNUM=$PORT
-PORT="-p $PORT:3000"
+PORT="-p $PORT:5000"
 
-if ! [[ $HTTPPORT =~ $re ]] ; then
+IFS='-' read -r -a PORTRANGE <<< "$HTTPPORT"
+if [ ${#PORTRANGE[*]} -lt 2 ]; then
+    echo "error: carla port range is incorrect. Please specify a range of ports, e.g. 3000-3002" >&2; exit 1
+fi
+if ! [[ "${PORTRANGE[0]}" =~ $re ]] || ! [[ "${PORTRANGE[1]}" =~ $re ]]; then
     echo "error: Invalid port specified" >&2; exit 1
 fi
+HTTPPORT="-p ${PORTRANGE[0]}-${PORTRANGE[1]}:${PORTRANGE[0]}-${PORTRANGE[1]}"
 
 if [ "$SERVER" = "server" ]; then
     HTTPPORT="-p ${HTTPPORT}:8080"
@@ -55,9 +61,7 @@ else
     HTTPPORT=""
 fi
 HOSTNETWORK="--network host"
-if [ "$MPIHOSTS" = "" ] || [ "$SYSTEM_TYPE" = "Darwin" ]; then
-    HOSTNETWORK=""
-fi
+HOSTNETWORK=""
 
 # Configure SHM size
 if [ "$SYSTEM_TYPE" = "Darwin" ]; then
@@ -143,26 +147,14 @@ if [ -d /media/azuredata ]
 then
     AZUREBIND="-v /media/azuredata:/media/azuredata"
 fi
+if [ -d /mnt ]
+then
+    AZUREBIND="$AZUREBIND -v /mnt:/media/azuredata"
+fi
 
-INFINIDEVICES=""
-if [ -d /dev/infiniband ]
-then
-    for i in `ls /dev/infiniband/uverbs*`
-    do
-        INFINIDEVICES="$INFINIDEVICES --device=$i"
-    done
-    if [ -e /dev/infiniband/rdma_cm ]
-    then
-        INFINIDEVICES="$INFINIDEVICES --device=/dev/infiniband/rdma_cm"
-    fi
-fi
-if [ "$INFINIDEVICES" != "" ]
-then
-   INFINIDEVICES="$INFINIDEVICES --cap-add CAP_SYS_PTRACE"
-fi
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
-    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb $INFINIDEVICES $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results fastbatllnn-run:${user} ${user} $INTERACTIVE $SERVER $CORES $PORTNUM $MPIHOSTS "$MPIARGS"
+    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} carla $INTERACTIVE $SERVER $CORES $PORTNUM $MPIHOSTS "$MPIARGS"
 else
     echo "Restarting container $EXISTING_CONTAINER (command line options except \"--server\" ignored)..."
     docker start $ATTACH $EXISTING_CONTAINER

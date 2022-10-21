@@ -7,6 +7,7 @@ PORTNUM=$5
 MPIHOSTS=$6
 MPIARGS="$7"
 /usr/sbin/sshd -D &> /root/sshd_log.out &
+
 if [ ! -d /home/$USER/.ssh ]
 then
     sudo -u $USER mkdir /home/$USER/.ssh
@@ -69,6 +70,10 @@ chmod 755 /usr/local/bin/charming
 if [ "$SERVER" = "server" ]; then
 	sudo -u $USER /usr/local/bin/charming /home/$USER/tools/FastBATLLNN/FastBATLLNNServer.py &> "/home/$USER/results/FastBATLLNN_server_log.out" &
 fi
+
+sudo -u $USER /usr/local/bin/bk /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound
+
+
 if [ "$INTERACTIVE" = "-d" ]; then
 	wait -n
 else

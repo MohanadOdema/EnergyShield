@@ -21,28 +21,9 @@ for argwhole in "$@"; do
     esac
 done
 
-if [ "$TOKEN" != "" ]; then
-    if [ "$TOKEN" != "public" ]; then
-        echo "$TOKEN" | docker login -u jferlez --password-stdin
-        if [ $? != 0 ]; then
-            echo "ERROR: Unable to login to DockerHub using available access token! Quitting..."
-            exit 1
-        fi
-    fi
-    docker pull jferlez/fastbatllnn-deps:$BUILD
-    if [ $? != 0 ]; then
-        echo "ERROR: docker pull command failed! Quitting..."
-        exit 1
-    fi
-    PROCESSING="s/fastbatllnn-deps:local/jferlez\/fastbatllnn-deps:$BUILD/"
-    cd "$SCRIPT_DIR"
-    echo "$TOKEN" > .hub_token
-else
-    cd "$SCRIPT_DIR/DockerDeps"
-    docker build -t fastbatllnn-deps:local .
-    PROCESSING="s/fastbatllnn/fastbatllnn/"
-fi
 
+# Legacy
+PROCESSING="s/fastbatllnn/fastbatllnn/"
 
 cd "$SCRIPT_DIR"
 
@@ -57,4 +38,4 @@ else
     PYTHON=""
 fi
 
-cat Dockerfile | sed -u -e $PROCESSING | docker build --no-cache --build-arg USER_NAME=$user --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t fastbatllnn-run:${user} -f- .
+cat Dockerfile | sed -u -e $PROCESSING | docker build --no-cache --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t energyshield:${user} -f- .
