@@ -10,7 +10,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SYSTEM_TYPE=$(uname)
 PORT=5000
 HTTPPORT="3000-3002"
-GPUS="--gpus all"
+GPUS="--gpus all --runtime=nvidia"
 INTERACTIVE="-d"
 SERVER="run"
 ATTACH=""
@@ -155,7 +155,7 @@ fi
 
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
-    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} carla $INTERACTIVE $SERVER $CORES $PORTNUM $MPIHOSTS "$MPIARGS"
+    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $MPIHOSTS "$MPIARGS"
 else
     echo "Restarting container $EXISTING_CONTAINER (command line options except \"--server\" ignored)..."
     docker start $ATTACH $EXISTING_CONTAINER
