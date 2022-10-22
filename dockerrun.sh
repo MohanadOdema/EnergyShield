@@ -150,7 +150,7 @@ then
 fi
 if [ -d /mnt ]
 then
-    AZUREBIND="$AZUREBIND -v /mnt:/media/azuredata"
+    AZUREBIND="$AZUREBIND -v /mnt:/media/azuretmp"
 fi
 
 
