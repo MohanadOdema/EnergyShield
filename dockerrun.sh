@@ -158,10 +158,14 @@ fi
 if [ "$SWAP" = "on"  ] && [ -e /dev/sdb1 ]
 then
     echo "Swap space requested, and temporary device found... Activating swap..."
-    sudo fallocate -l 32G /mnt/swapfile
-    sudo chmod 600 /mnt/swapfile
-    sudo mkswap /mnt/swapfile
-    sudo swapon /mnt/swapfile
+    if ! [ -e /mnt/swapfile ]; then
+        sudo fallocate -l 32G /mnt/swapfile
+        sudo chmod 600 /mnt/swapfile
+        sudo mkswap /mnt/swapfile
+        sudo swapon /mnt/swapfile
+    else
+        echo "Swap file /mnt/swapfile already exists. Assuming it is already active..."
+    fi
 fi
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
