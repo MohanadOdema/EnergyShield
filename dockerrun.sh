@@ -38,7 +38,8 @@ for argwhole in "$@"; do
         --mpi-args) MPIARGS="$val";;
         --cores) CORES="$val";;
         --remove) REMOVE="yes";;
-        --add-swap) SWAP="on"
+        --add-swap) SWAP="on";;
+        --start-carla) MPIARGS="--start-carla"
     esac
 done
 
