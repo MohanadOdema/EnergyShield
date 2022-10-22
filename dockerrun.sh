@@ -20,6 +20,7 @@ MPIHOSTS=""
 MPIARGS="--mca pml ob1 --mca btl tcp,vader,self"
 CORES=""
 REMOVE=""
+SWAP=""
 for argwhole in "$@"; do
     IFS='=' read -r -a array <<< "$argwhole"
     arg="${array[0]}"
@@ -36,7 +37,8 @@ for argwhole in "$@"; do
         --mpi) MPIHOSTS="$val";;
         --mpi-args) MPIARGS="$val";;
         --cores) CORES="$val";;
-        --remove) REMOVE="yes"
+        --remove) REMOVE="yes";;
+        --add-swap) SWAP="on"
     esac
 done
 
@@ -153,6 +155,14 @@ then
     AZUREBIND="$AZUREBIND -v /mnt:/media/azuretmp"
 fi
 
+if [ "$SWAP" = "on"  ] && [ -e /dev/sdb1 ]
+then
+    echo "Swap space requested, and temporary device found... Activating swap..."
+    sudo fallocate -l 32G /mnt/swapfile
+    sudo chmod 600 /mnt/swapfile
+    sudo mkswap /mnt/swapfile
+    sudo swapon /mnt/swapfile
+fi
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
     docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $MPIHOSTS "$MPIARGS"
