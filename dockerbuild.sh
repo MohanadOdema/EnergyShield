@@ -39,4 +39,4 @@ else
 fi
 
 #cat Dockerfile | sed -u -e $PROCESSING | docker build --no-cache --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t energyshield:${user} -f- .
-cat Dockerfile | sed -u -e $PROCESSING | docker build --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t EnergyShield:${user} -f- .
+cat Dockerfile | sed -u -e $PROCESSING | docker build --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t energyshield:${user} -f- .
