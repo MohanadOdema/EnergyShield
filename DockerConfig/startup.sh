@@ -55,7 +55,7 @@ done
 
 PYPATH="/home/$USER/tools/FastBATLLNN:/home/$USER/tools/FastBATLLNN/HyperplaneRegionEnum:/home/$USER/tools/FastBATLLNN/TLLnet:/home/$USER/tools/nnenum/src/nnenum"
 
-if [ "$MPIHOSTS" != "" ]; then
+if [ "$MPIHOSTS" != "none" ]; then
     echo "$MPIHOSTS" | sed -e 's/,/\
 /g' -e 's/:/    /g' >> /etc/hosts
     echo "$MPIHOSTS" | sed -e 's/,/\
