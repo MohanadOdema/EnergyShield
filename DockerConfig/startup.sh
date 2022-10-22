@@ -60,10 +60,11 @@ if [ "$MPIHOSTS" != "none" ]; then
 /g' -e 's/:/    /g' >> /etc/hosts
     echo "$MPIHOSTS" | sed -e 's/,/\
 /g' -e 's/:/    /g' >> /home/$USER/cluster_hosts.txt
+    chmod 666 /home/$USER/cluster_hosts.txt
     HOSTLIST=`echo "$MPIHOSTS" | sed -E -e 's/:[^:,]+/:-1/g'`
     if [ "$MPIARGS" = "--start-carla" ]; then
         echo "Start carla triggered..." >> /home/$USER/start_carla_test.txt
-        chmod 644 /home/$USER/start_carla_test.txt
+        chmod 666 /home/$USER/start_carla_test.txt
     fi
 fi
 
