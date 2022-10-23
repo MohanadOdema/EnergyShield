@@ -28,6 +28,17 @@ RUN apt-get update && \
     apt -y install python3-pip clang-8 lld-8 bash ninja-build zlib1g-dev libjpeg-dev libtiff-dev rsync cmake gfortran libgsl-dev libfftw3-3 libfftw3-dev libsuitesparse-dev git libgmp-dev vim emacs nano screen tmux ipython3 openssh-server sudo curl psmisc locales util-linux git-lfs && \
     curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     apt -y install nodejs
+# Install MS PowerShell
+RUN wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+RUN sudo dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
+RUN sudo apt-get update && sudo apt-get install -y powershell
+
+RUN apt -y clean && \
+    apt update && \
+    apt -y purge cuda && \
+    apt -y purge nvidia-* && \
+    apt -y autoremove && \
+    apt -y install cuda
 RUN dpkg -r --force-depends "python3-httplib2"
 RUN dpkg -r --force-depends "python3-pexpect"
 RUN python3.10 -m pip install --upgrade pip && \
