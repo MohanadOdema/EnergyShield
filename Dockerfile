@@ -168,9 +168,9 @@ RUN update-alternatives --install /usr/bin/clang++ clang++ /usr/lib/llvm-8/bin/c
 RUN update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang 180
 
 COPY --chown=${UID}:${GID} ./EnergyShield /home/${USER_NAME}/EnergyShield/EnergyShield
-COPY --chown=${UID}:${GID} ./TensorFlow /home/${USER_NAME}/TensorFlow
+COPY --chown=${UID}:${GID} ./TensorFlow /home/${USER_NAME}/EnergyShield/TensorFlow
 
-RUN cd /home/${USER_NAME}/TensorFlow/models && python3.10 -m pip install -e research
+RUN cd /home/${USER_NAME}/EnergyShield/TensorFlow/models && python3.10 -m pip install -e research
 
 USER ${USER_NAME}
 RUN cd /home/${USER_NAME}/carla && make PythonAPI ARGS="--python-version=3.10"
