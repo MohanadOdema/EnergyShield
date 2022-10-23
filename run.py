@@ -287,7 +287,7 @@ def train(params, start_carla=True, restart=False):
                         viz_utils.visualize_boxes_and_labels_on_image_array(
                                 image_np_with_detections,
                                 np.squeeze(detections['detection_boxes']),
-                                np.squeeze(detections['detection_classes']),
+                                np.squeeze(detections['detection_classes']).astype(int).tolist(),
                                 np.squeeze(detections['detection_scores']),
                                 category_index,
                                 use_normalized_coordinates=True,
