@@ -82,7 +82,7 @@ RUN cd /tmp && \
     echo 'export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}' >> /etc/profile.d/cuda.sh && \
     echo 'export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}' >> /etc/profile.d/cuda.sh && \
     chmod 644 /etc/profile.d/cuda.sh && \
-    source /etc/profile.d/cuda.sh && ldconfig && \
+    /bin/bash -c "source /etc/profile.d/cuda.sh && ldconfig" && \
     rm cuda_11.8.0_520.61.05_linux.run && \
     apt-get -y install --no-install-recommends libcudnn8 libcudnn8-dev
 
