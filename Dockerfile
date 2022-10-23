@@ -31,7 +31,7 @@ RUN apt-get update && \
 RUN dpkg -r --force-depends "python3-httplib2"
 RUN dpkg -r --force-depends "python3-pexpect"
 RUN python3.10 -m pip install --upgrade pip && \
-    python3.10 -m pip install numpy==1.22.4 tensorflow==2.9.2 tf-models-official==2.9.2 scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas pygame opencv-python tensorflow_hub distro ipython scikit_learn joblib ipykernel
+    python3.10 -m pip install numpy==1.22.4 tensorflow==2.9.2 tf-models-official==2.9.2 scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas pygame opencv-python tensorflow_hub distro ipython scikit_learn joblib ipykernel onnx_tf tensorflow_probability==0.17.0
 RUN npm install -g vim-language-server node-gyp tree-sitter tree-sitter-cli
 
 RUN sed -i '16i Port 5000' /etc/ssh/sshd_config
