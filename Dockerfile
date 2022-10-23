@@ -4,6 +4,13 @@ ARG USER_NAME
 ARG UID
 ARG GID
 ARG CORES
+
+ENV BASE_URL=https://us.download.nvidia.com/XFree86/Linux-x86_64
+ENV DRIVER_VERSION=515.76
+ENV DRIVER_BRANCH=515
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NVIDIA_VISIBLE_DEVICES=void
+
 USER root
 WORKDIR /tmp/docker_build
 RUN ln -snf /usr/share/zoneinfo/$CONTAINER_TIMEZONE /etc/localtime && echo $CONTAINER_TIMEZONE > /etc/timezone
@@ -33,12 +40,52 @@ RUN wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/pac
 RUN sudo dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
 RUN sudo apt-get update && sudo apt-get install -y powershell
 
+# Install CUDA from Ubuntu repositories (old versions)
+# RUN apt -y install nvidia-cuda-toolkit
+
+# Atempt to remove installed nvidia runtimes and replace with .run file installes
+# (Cannot install from nvidia repos because deb packages try to build kernel modules)
+# The following is based on: https://gitlab.com/nvidia/container-images/driver/-/blob/master/ubuntu18.04/Dockerfile
 RUN apt -y clean && \
     apt update && \
     apt -y purge cuda && \
     apt -y purge nvidia-* && \
-    apt -y autoremove && \
-    apt -y install cuda
+    apt -y autoremove
+# The following will fail because it installs nvidia drivers from nvidia repos:
+# RUN apt -y install cuda
+RUN cd /tmp && \
+    curl -fSsl -O $BASE_URL/$DRIVER_VERSION/NVIDIA-Linux-x86_64-$DRIVER_VERSION.run && \
+    sh NVIDIA-Linux-x86_64-$DRIVER_VERSION.run --extract-only && \
+    cd NVIDIA-Linux-x86_64-$DRIVER_VERSION* && \
+    ./nvidia-installer --silent \
+                       --no-kernel-module \
+                       --install-compat32-libs \
+                       --no-nouveau-check \
+                       --no-nvidia-modprobe \
+                       --no-rpms \
+                       --no-backup \
+                       --no-check-for-alternate-installs \
+                       --no-libglx-indirect \
+                       --no-install-libglvnd \
+                       --x-prefix=/tmp/null \
+                       --x-module-path=/tmp/null \
+                       --x-library-path=/tmp/null \
+                       --x-sysconfig-path=/tmp/null \
+                       --no-systemd && \
+    mkdir -p /usr/src/nvidia-$DRIVER_VERSION && \
+    mv LICENSE mkprecompiled kernel /usr/src/nvidia-$DRIVER_VERSION && \
+    sed '9,${/^\(kernel\|LICENSE\)/!d}' .manifest > /usr/src/nvidia-$DRIVER_VERSION/.manifest && \
+    rm -rf /tmp/*
+RUN cd /tmp && \
+    wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run && \
+    sh cuda_11.8.0_520.61.05_linux.run --toolkit --no-drm --silent && \
+    echo 'export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}' >> /etc/profile.d/cuda.sh && \
+    echo 'export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}' >> /etc/profile.d/cuda.sh && \
+    chmod 644 /etc/profile.d/cuda.sh && \
+    source /etc/profile.d/cuda.sh && ldconfig && \
+    rm cuda_11.8.0_520.61.05_linux.run && \
+    apt-get -y install --no-install-recommends libcudnn8 libcudnn8-dev
+
 RUN dpkg -r --force-depends "python3-httplib2"
 RUN dpkg -r --force-depends "python3-pexpect"
 RUN python3.10 -m pip install --upgrade pip && \
