@@ -64,6 +64,12 @@ if [ "$MPIHOSTS" != "none" ]; then
     HOSTLIST=`echo "$MPIHOSTS" | sed -E -e 's/:[^:,]+/:-1/g'`
     if [ "$MPIARGS" = "--start-carla" ]; then
         echo "Start carla triggered..." >> /home/$USER/start_carla_test.txt
+        sudo -u $USER /bin/sh -c "cd /home/$USER && /usr/local/bin/bk /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound"
+        sleep 2
+        if [ -e /home/$USER/log.out ]; then
+            chown $USER /home/$USER/log.out
+            chmod 666 /home/$USER/log.out
+        fi
         chmod 666 /home/$USER/start_carla_test.txt
     fi
 fi
