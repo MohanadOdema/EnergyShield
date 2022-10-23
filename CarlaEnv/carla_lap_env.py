@@ -670,7 +670,7 @@ class CarlaLapEnv(gym.Env):
             self.close()
             self.terminal_state = True
 
-        return encoded_state, self.last_reward, self.terminal_state, { "closed": self.closed, "ego_x": ego_x, "ego_y": ego_y, "obstacle_x": obstacle_x, "obstacle_y":obstacle_y, "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, "rl_steer":rl_steer, "rl_throttle":rl_throttle, "filter_steer":filter_steer, "filter_throttle":filter_throttle, "sim_time":time.clock(),
+        return encoded_state, self.last_reward, self.terminal_state, { "closed": self.closed, "ego_x": ego_x, "ego_y": ego_y, "obstacle_x": obstacle_x, "obstacle_y":obstacle_y, "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, "rl_steer":rl_steer, "rl_throttle":rl_throttle, "filter_steer":filter_steer, "filter_throttle":filter_throttle, "sim_time":time.perf_counter(),
                                                                        "filter_applied": filter_applied, "action_none":(action is None)}
 
     def _draw_path(self, life_time=60.0, skip=0):

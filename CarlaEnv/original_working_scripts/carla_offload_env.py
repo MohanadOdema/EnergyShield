@@ -645,7 +645,7 @@ class CarlaOffloadEnv(gym.Env):
         env_dict = rounded_dict({"closed": self.closed, "ego_x": ego_x, "ego_y": ego_y, "obstacle_x": obstacle_x, "obstacle_y":obstacle_y, 
                         "route":self.route_waypoints, "current_waypoint_index":self.current_waypoint_index, "xi":self.xi, "r": self.r, 
                         "rl_steer":rl_steer, "rl_throttle":rl_throttle, "filter_steer":filter_steer, "filter_throttle":filter_throttle, 
-                        "sim_time":time.clock(), "filter_applied": filter_applied, "action_none":(action is None)})
+                        "sim_time":time.perf_counter(), "filter_applied": filter_applied, "action_none":(action is None)})
         offloading_dict = rounded_dict({"probe_tu": self.probe_tu[0], "delta_tu":self.delta_tu[0], 
                             "selected_action": self.energy_monitor.selected_action, "correct_action": self.energy_monitor.correct_action,
                             "probe_latency": self.energy_monitor.probe_off_latency, "probe_energy": self.energy_monitor.probe_off_energy,
