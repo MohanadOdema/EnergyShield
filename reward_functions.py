@@ -48,11 +48,11 @@ def create_reward_fn(reward_fn, max_speed=-1):
         else:
             low_speed_timer = 0.0
             if env.track_completed:
-                reward1 += 100#500 #100
-                reward2 += 100#500 #100
+                reward1 += 100 #500 #100
+                reward2 += 100 #500 #100
             else:
-                reward1 -= 100#500 #100
-                reward2 -= 100#500 #100
+                reward1 -= 100 #500 #100
+                reward2 -= 100 #500 #100
 
         if env.terminal_state:
             env.extra_info.extend([

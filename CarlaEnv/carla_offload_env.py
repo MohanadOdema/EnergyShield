@@ -13,7 +13,6 @@ from gym.utils import seeding
 from pygame.locals import *
 import numpy as np
 from collections import deque
-from energyShieldDeltaT import energyShieldDeltaT
 
 from hud import HUD
 from planner import RoadOption, compute_route_waypoints
@@ -85,10 +84,12 @@ class CarlaOffloadEnv(gym.Env):
         self.spawn_random           = params["spawn_random"]
         self.min_speed              = params["min_speed"]
         self.max_speed              = params["max_speed"]
+        self.debug                  = params["debug"]
         self.target_speed           = ((self.min_speed + self.max_speed) // 2)
         assert type(self.target_speed) is int
 
-        self.energyShieldDeltaT = energyShieldDeltaT('./energyShieldPyLUT_sigma=0.28_rbar=4_lr=1.6_df=1.1854_vmax=12.p')
+        self.energyShieldDeltaT = energyShieldDeltaT('./shieldNN_sigma=0.28_rbar=4_lr=1.6_df=1.1854_vmax=12/energyShieldPyLUT_sigma=0.28_rbar=4_lr=1.6_df=1.1854_vmax=12.p')#,lutRange=(0,5))
+        # self.energyShieldDeltaT = energyShieldDeltaT('./shieldNN_sigma=0.48_rbar=4_lr=2_df=0.785398_vmax=20/energyShieldPyLUT_sigma=0.48_rbar=4_lr=2_df=0.785398_vmax=20.p')
         self.offloading_manager = OffloadingManager(params)
         self.phi_sampler = RayleighSampler(params['estimation_fn'], params['phi_scale'], params['phi_shift']) # samples phi (Mbps)
         if params['rtt_dist'] == 'gamma':
@@ -596,13 +597,16 @@ class CarlaOffloadEnv(gym.Env):
                 if filter_applied:
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
-            if 'Shield' in self.offloading_manager.offload_policy and (self.offloading_manager.rx_flag or self.offloading_manager.belaying):
-                if self.offloading_manager.rx_flag:                          # TODO: Verify when you get the table
+            if 'Shield' in self.offloading_manager.offload_policy and self.offloading_manager.sample_new: # and (self.offloading_manager.rx_flag or self.offloading_manager.belaying):
+                # if self.offloading_manager.sample_new: 
+                # if not self.offloading_manager.transit_flag and not self.offloading_manager.recover_flag and not self.offloading_manager.belaying:
                     Beta = self.computeBeta(self.vehicle.control)
                     self.delta_T = round(self.energyShieldDeltaT.deltaT(r, xi, Beta) * 1000, 3)      # sample new delta_T in ms
-                    # print(f"r: {r:.3f}, xi: {xi:.3f}, steer_beta: {Beta:.3f}")
-                    # print(f"delta_T: {self.delta_T} ms")
-                    # exit(0)
+                    self.offloading_manager.sample_new = False
+                    if self.debug:
+                        print(f"r: {r:.3f}, xi: {xi:.3f}, steer_beta: {Beta:.3f}")
+                        print(f"delta_T: {self.delta_T} ms")
+                        # exit(0)
 
         rl_steer = self.vehicle.control.steer
         rl_throttle = self.vehicle.control.throttle
@@ -647,8 +651,10 @@ class CarlaOffloadEnv(gym.Env):
                 
         self.offloading_manager.determine_offloading_decision(self.channel_params, self.delta_T, self.initialize)
 
-        # print(f"delta_T in {self.offloading_manager.time_window} windows: {self.offloading_manager.delta_T}")
-        # print(f"Offloading action: {self.offloading_manager.selected_action}\n")
+        if self.debug:
+            print(f"delta_T in {self.offloading_manager.time_window} windows: {self.offloading_manager.delta_T}")
+            print(f"Offloading action: {self.offloading_manager.selected_action}")
+            print(f"Transit Window: {self.offloading_manager.transit_window}; Rx_flag: {self.offloading_manager.rx_flag}; Belay_flag: {self.offloading_manager.belaying}\n")
 
         # Get most recent observation and viewer image (or hold if in transit/belay)
         self.current_observation = self._get_observation()

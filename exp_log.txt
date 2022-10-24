@@ -1,6 +1,7 @@
 10/18
 Carla1 on aicps server running csac_agent_AA w/ 200 penalty -- gpu 0
 Carla2 on aicps server running csac_agent_A w/ 100 penalty --gpu 1
+Carla3 on rcpslserver runnincg casc_agent_D w/ 100 penalty -- gpu 2  and 3
 
 Shield always hits the curb after the last object -- options include reducing distance by 1.5 -- removing curbs -- decreasing objects -- ask about the angle
 

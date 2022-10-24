@@ -67,13 +67,13 @@ set -x
 
 # python run.py --model_name casc_agent_C -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -gaussian -safety_filter
 
-# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 40
 
-# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -gaussian
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 40 -gaussian
 
-# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -safety_filter 
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 20 -safety_filter 
 
-# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -gaussian -safety_filter
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04 --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 20 -gaussian -safety_filter
 
 # # New models from rcpslserver (w/new shield r-2) w/o layers
  
@@ -93,12 +93,12 @@ set -x
 
 # python run.py --model_name casc_agent_C -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -gaussian -safety_filter
 
-# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 40
 
-# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -gaussian
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 40 -gaussian
 
-python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -safety_filter 
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 20 -safety_filter 
 
-python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 10 -gaussian -safety_filter  
+# python run.py --model_name casc_agent_A -obstacle --len_obs 4 --carla_map Town04_OPT --offload_policy local --deadline 100 --obs_start_idx 40 --len_route medium -penalize_dist_obstacle -test --estimation_fn worst --num_episodes 20 -gaussian -safety_filter  
 
 

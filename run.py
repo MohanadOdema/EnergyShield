@@ -443,10 +443,9 @@ def train(params, start_carla=True, restart=False):
             completed_x = [x.transform.location.x for (x,_) in completed_route]
             completed_y = [x.transform.location.y for (x,_) in completed_route]
 
-            if params['offload_policy'] == 'Shield':
+            if 'Shield' in params['offload_policy']:
                 print(f"Shield Energy: {round(np.mean(exp_energy),3)} compared to local energy: 113.5")
                 print(f"% change = {round((np.mean(exp_energy) - 113.5)/113.5, 3)} \n\n ")
-                exit()
 
             if not params["no_save"]:
 
@@ -544,7 +543,7 @@ if __name__ == "__main__":
     # TODO: Write a description for the different offloading policies
     parser.add_argument("--arch", type=str, help="Name of the model running on the AV platform", choices=['ResNet18', 'ResNet50', 'ResNet152', 'DenseNet169', 'ViT', 'ResNet18_mimic', 'ResNet50_mimic', 'DenseNet169_mimic'], default='ResNet152')
     parser.add_argument("--offload_position", type=str, help="Offloading position", choices=['direct', '0.5_direct', '0.25_direct', '0.11_direct', 'bottleneck'], default='direct')
-    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield'], default='offload')    
+    parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield1', 'Shield2'], default='offload')    
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
@@ -562,7 +561,7 @@ if __name__ == "__main__":
 
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
-    parser.add_argument("--estimation_fn", type=str, default='worst', help="vehicle estimation function of the network conditions")
+    parser.add_argument("--estimation_fn", type=str, default='avg', help="vehicle estimation function of the network conditions")
     parser.add_argument("--phi_scale", type=float, default=20, help="scale parameter for the channel capacity pdf")
     parser.add_argument("--phi_shift", type=float, default=0, help="shift parameter for the channel capacity pdf")
     parser.add_argument("--rtt_dist", type=str, default='gamma', help="use gamma or rayleigh pdf for rtt", choices=['rayleigh', 'gamma'])
@@ -571,7 +570,7 @@ if __name__ == "__main__":
     parser.add_argument("--rtt_shift", type=float, default=0, help="shift from zero for RTT pdf")   #2     # 10
     parser.add_argument("--qsize", type=int, default=4000 , help='queue size at the server')
     parser.add_argument("--arate", type=int, default=970 , help='arrival rate for queue size pdf')
-    parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')
+    parser.add_argument("--srate", type=int, default=900 , help='service rate for queue size pdf')  # originally 1000
 
     # Carla Config file
     parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
@@ -588,6 +587,8 @@ if __name__ == "__main__":
     parser.add_argument("--obs_start_idx", type=int, default=40, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
     parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
+    parser.add_argument("--shield_specs", type=int, default=2, help="which shield specsto use")
+    parser.add_argument("-debug", action='store_true', help="print logs for debugging")
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
