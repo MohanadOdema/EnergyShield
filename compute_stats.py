@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description="compute stats for an excel file")
 parser.add_argument("--model_name", type=str, default='casc_agent3', help="Name of the model")
 parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
 parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
-parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield'], default='offload')    
+parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield1', 'Shield2'], default='offload')    
 parser.add_argument("--deadline", type=int, help="dealdine in ms", default=20)                    # Single time window is 20 ms
 parser.add_argument("--len_obs", type=int, default=4, help="How many objects to be spawned given len_route is satisfied")
 parser.add_argument("--local_belay", action='store_true', default=False, help="belay local execution until the last execution window of the dealdine")
@@ -61,7 +61,9 @@ results_dict = {}
 
 results_dict['TCR'] = track_completion_rate(df['obstacle_hit'], df['curb_hit'])
 results_dict['avg_reward'] = round(np.mean(df['reward']),2)
+# results_dict['normalized_avg_reward'] = round((np.mean(df['reward']))/len(df['reward']), 2)
 results_dict['cond_avg_reward'] = compute_conditional_avg(df['reward'], df['obstacle_hit'], df['curb_hit'])
+results_dict['distance_traveled'] = round(np.mean(df['dist_traveled']), 2)
 results_dict['avg_CD'] = round(np.mean(df['avg_center_deviance']),2)
 results_dict['cond_avg_CD'] = compute_conditional_avg(df['avg_center_deviance'], df['obstacle_hit'], df['curb_hit'])
 results_dict['avg_energy'] = round(np.mean(df['avg_energy']), 2)
