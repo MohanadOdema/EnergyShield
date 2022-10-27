@@ -35,7 +35,7 @@ parser.add_argument("--local_early", action='store_true', default=False, help="i
 parser.add_argument("--off_belay", action='store_true', default=False, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )  
 parser.add_argument("--file_type", type=str, default='valid', help="The csv file to load")      
 parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
-parser.add_argument("--map", type=str, default='80p', help="80p, Town04, or Town04_OPT")
+parser.add_argument("--map", type=str, default='Town04_OPT', help="80p, Town04, or Town04_OPT")
 parser.add_argument("--queue_state", type=int, default=None, help='Approximation to set number of tasks in a queue')
 
 params = vars(parser.parse_args())

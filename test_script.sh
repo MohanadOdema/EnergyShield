@@ -3,6 +3,39 @@ set -x
 # On server run example:
 # sudo env "PATH=$PATH" python run.py --model_name casc_agent2 -obstacle -test --offload_policy local --len_obs 4 --obs_start_idx 20 --num_episodes 100 -safety_filter -display_off --port 2000
 
+# Casc_agent_A from aicps server on short route - Local
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy local --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy local --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT -gaussian
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy local --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT -safety_filter
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy local --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT  -gaussian -safety_filter
+
+# Casc_agent_A from aicps server on short route - Shield Eager
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT -gaussian
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT -safety_filter
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT  -gaussian -safety_filter
+
+# Casc_agent_A from aicps server on short route - Shield off_belay
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --off_belay --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --off_belay --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT -gaussian
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --off_belay --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT -safety_filter
+
+python run.py --model_name casc_agent_A -obstacle -test --deadline 100 --offload_policy Shield2 --off_belay --len_obs 4 --obs_start_idx 40 --num_episodes 35 -penalize_dist_obstacle --len_route short --cont_control True --carla_map Town04_OPT  -gaussian -safety_filter
+
+
+
+
+
+
+
 #Test casc model 1
 # python run.py --model_name casc_agent1 -obstacle -test --offload_policy local --len_obs 4 --obs_start_idx 20 --num_episodes 30 -safety_filter
 
