@@ -1,3 +1,6 @@
+10-23
+There is a version of casc_agent4 on the hdd after the 1st experimnet and before doing the throughput sweep experiments
+
 10/18
 Carla1 on aicps server running csac_agent_AA w/ 200 penalty -- gpu 0
 Carla2 on aicps server running csac_agent_A w/ 100 penalty --gpu 1

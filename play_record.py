@@ -8,6 +8,8 @@
 import glob
 import os
 import sys
+import pandas
+import csv
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -32,12 +34,20 @@ def main():
     argparser.add_argument('-x', '--time-factor', metavar='X', default=1.0, type=float, help='time factor (default 1.0)')
     argparser.add_argument('-i', '--ignore-hero', action='store_true', help='ignore hero vehicles')
     argparser.add_argument('--filename', type=str, help='file path for the recording')
+    argparser.add_argument('--draw_path', action='store_true', help='draw trajectories')
     args = argparser.parse_args()
 
-    args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent3/experiments/obs_4_route_short/80p_ResNet152_local_cont/PX2_20_Safety_True_noise_False/logs/1645_log.log'
+    # args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent3/experiments/obs_4_route_short/80p_ResNet152_local_cont/PX2_20_Safety_True_noise_False/logs/1645_log.log'
+    args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent4/experiments/obs_4_route_short/Town04_OPT_ResNet152_local_cont/PX2_100_Safety_False_noise_False/logs/1754_log.log'
+    args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent4/experiments/obs_4_route_short/Town04_OPT_ResNet152_local_cont/PX2_100_Safety_True_noise_True/logs/1753_log.log'   # duration 7.3
+    # args.filename = '/home/mohanadodema/EnergyShield/models/casc_agent4/experiments/obs_4_route_short/Town04_OPT_ResNet152_local_cont/PX2_100_Safety_True_noise_False/logs/1747_log.log'   # duration 8.3
 
     try:
         client = carla.Client(args.host, args.port)
+
+        if args.draw_path:
+            _draw_path(life_time=1000.0, skip=10)   
+
         client.set_timeout(60.0)
 
         # set the time factor for the replayer
@@ -47,9 +57,37 @@ def main():
         client.set_replayer_ignore_hero(args.ignore_hero)
 
         # replay the session
-        print(client.replay_file(args.filename, args.start, args.duration, args.camera))
+        print(client.replay_file(args.filename, args.start, 8, args.camera))
+
+        # print(client.show_recorder_actors(args.filename))
+
+
     finally:
         pass
+
+def _draw_path(life_time=60.0, skip=0):
+    """
+        Draw a connected path from start of route to end.
+        Green node = start
+        Red node   = point along path
+        Blue node  = destination
+    """
+    return
+    for i in range(0, len(self.route_waypoints)-1, skip+1):
+        w0 = self.route_waypoints[i][0]
+        w1 = self.route_waypoints[i+1][0]
+        self.world.debug.draw_line(
+            w0.transform.location + carla.Location(z=0.25),
+            w1.transform.location + carla.Location(z=0.25),
+            thickness=0.1, color=carla.Color(255, 0, 0),
+            life_time=life_time, persistent_lines=False)
+        self.world.debug.draw_point(
+            w0.transform.location + carla.Location(z=0.25), 0.1,
+            carla.Color(0, 255, 0) if i == 0 else carla.Color(255, 0, 0),
+            life_time, False)
+    self.world.debug.draw_point(
+        self.route_waypoints[-1][0].transform.location + carla.Location(z=0.25), 0.1,
+        carla.Color(0, 0, 255), life_time, False)
 
 if __name__ == '__main__':
 

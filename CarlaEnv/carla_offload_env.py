@@ -96,7 +96,7 @@ class CarlaOffloadEnv(gym.Env):
             self.rtt_sampler = ShiftedGammaSampler(params['estimation_fn'], params['rtt_shape'], params['rtt_scale'], params['rtt_shift']) # samples rtt (ms)
         elif params['rtt_dist'] == 'rayleigh':
             self.rtt_sampler = RayleighSampler(params['estimation_fn'], params['rtt_scale'], params['rtt_shift'])
-        self.que_sampler = NetworkQueueModel(params['estimation_fn'], params['qsize'], params['arate'], params['srate'])
+        self.que_sampler = NetworkQueueModel(params['estimation_fn'], params['qsize'], params['arate'], params['srate'], params['queue_state'])
 
         # Initialize pygame for visualization
         pygame.init()
@@ -178,6 +178,10 @@ class CarlaOffloadEnv(gym.Env):
                 pass
             else:
                 raise ValueError("Not supported road length!")
+
+
+            completed_x = [x.transform.location.x for (x,_) in self.route_waypoints]
+            completed_y = [x.transform.location.y for (x,_) in self.route_waypoints]
 
             self.destination = self.route_waypoints[-1][0].transform.location
             # self.destination = carla.Location(x=407.009613, y=-229.571365, z=0)       # actual dimensions of last element in self.route_waypoints (medium)
@@ -592,21 +596,19 @@ class CarlaOffloadEnv(gym.Env):
             else:
                 self.missed_controls += 1
             if self.safety_filter is not None:
-                self.safety_filter.set_filter_inputs(self.xi, self.r-2)          # shield needs to take the input readings either way (-0.5 so as not to cross the barrier)
+                if self.offloading_manager.rx_flag:         # update obstacle estimates only when delta_T expires
+                    self.safety_filter.set_filter_inputs(self.xi, self.r-2)          
                 self.vehicle.control, self.steer_diff, filter_applied = self.safety_filter.filter_control(self.vehicle.control)
                 if filter_applied:
                     self.apply_filter_counter+=1
                     self.steer_diff_avg = (self.steer_diff_avg+self.steer_diff)/self.apply_filter_counter
-            if 'Shield' in self.offloading_manager.offload_policy and self.offloading_manager.sample_new: # and (self.offloading_manager.rx_flag or self.offloading_manager.belaying):
-                # if self.offloading_manager.sample_new: 
-                # if not self.offloading_manager.transit_flag and not self.offloading_manager.recover_flag and not self.offloading_manager.belaying:
-                    Beta = self.computeBeta(self.vehicle.control)
-                    self.delta_T = round(self.energyShieldDeltaT.deltaT(r, xi, Beta) * 1000, 3)      # sample new delta_T in ms
-                    self.offloading_manager.sample_new = False
-                    if self.debug:
-                        print(f"r: {r:.3f}, xi: {xi:.3f}, steer_beta: {Beta:.3f}")
-                        print(f"delta_T: {self.delta_T} ms")
-                        # exit(0)
+            if 'Shield' in self.offloading_manager.offload_policy and self.offloading_manager.sample_new:
+                Beta = self.computeBeta(self.vehicle.control)
+                self.delta_T = round(self.energyShieldDeltaT.deltaT(r, xi, Beta) * 1000, 3)      # sample new delta_T in ms
+                self.offloading_manager.sample_new = False
+                if self.debug:
+                    print(f"r: {r:.3f}, xi: {xi:.3f}, steer_beta: {Beta:.3f}")
+                    print(f"delta_T: {self.delta_T} ms")
 
         rl_steer = self.vehicle.control.steer
         rl_throttle = self.vehicle.control.throttle
@@ -648,7 +650,7 @@ class CarlaOffloadEnv(gym.Env):
             self.phi_list.append(self.channel_params['phi_true'])
             self.rtt_list.append(self.channel_params['rtt_true'])
             self.que_list.append(self.channel_params['que_true'])
-                
+
         self.offloading_manager.determine_offloading_decision(self.channel_params, self.delta_T, self.initialize)
 
         if self.debug:

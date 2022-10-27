@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import gym
 
 from vae_common import create_encode_state_fn, load_vae
-from ppo import PPO
 from ppo_cascade import PPO_CASCADE
 from reward_functions import reward_functions
 from utils import VideoRecorder, compute_gae, plot_trajectories, plot_energy_stats, dir_manager
@@ -99,7 +98,17 @@ def train(params, start_carla=True, restart=False):
     else:
         sup_string = 'early'
 
-    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['carla_map'] +"_"+ params['arch'] +"_"+ params['offload_policy'] +"_"+ sup_string, params['HW']+"_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']))
+    if params['phi_scale'] != 20:
+        phi_string = '_'+str(params['phi_scale'])+'Mbps'
+    else:
+        phi_string = ''
+
+    if params['queue_state'] != None:
+        q_string = '_queue_'+str(params['queue_state'])+'_'
+    else:
+        q_string = ''
+
+    subdirs_path = os.path.join("models", model_name, "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), params['carla_map'] +"_"+ params['arch'] +"_"+ params['offload_policy'] +"_"+ sup_string + q_string + phi_string, params['HW']+"_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']))
 
     # Set seeds
     if isinstance(seed, int):
@@ -155,15 +164,7 @@ def train(params, start_carla=True, restart=False):
     num_actions = env.action_space.shape[0]         # steer and throttle if PPO
 
     # Create model     
-    if model_name.startswith('agent'): 
-        print("Creating model")
-        model = PPO(input_shape, env.action_space, 
-                    learning_rate=learning_rate, lr_decay=lr_decay,
-                    epsilon=ppo_epsilon, initial_std=initial_std,
-                    value_scale=value_scale, entropy_scale=entropy_scale,
-                    model_dir=os.path.join("models", model_name), 
-                    subdirs=subdirs_path)
-    elif model_name.startswith('casc_agent'):
+    if model_name.startswith('casc_agent'):
         print("Creating cascaded model")
         model = PPO_CASCADE(input_shape, bbox_shape, env.action_space,
                     learning_rate=learning_rate, lr_decay=lr_decay,
@@ -471,8 +472,10 @@ def train(params, start_carla=True, restart=False):
                         with open(train_data_path, 'a', newline='') as fd:
                             csv_writer = csv.writer(fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                             csv_writer.writerow(data_row)
+                else:
+                    final_episode_iteration += 1
             if model_name.startswith('agent') or model_name.startswith('casc_agent'):
-                model.write_episodic_summaries()    #TODO: remove the write tensorflow events
+                model.write_episodic_summaries()    
             else:
                 model.inc_count()
 
@@ -562,15 +565,16 @@ if __name__ == "__main__":
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
     parser.add_argument("--estimation_fn", type=str, default='avg', help="vehicle estimation function of the network conditions")
-    parser.add_argument("--phi_scale", type=float, default=20, help="scale parameter for the channel capacity pdf")
-    parser.add_argument("--phi_shift", type=float, default=0, help="shift parameter for the channel capacity pdf")
+    parser.add_argument("--phi_scale", type=int, default=20, help="scale parameter for the channel capacity pdf")
+    parser.add_argument("--phi_shift", type=int, default=0, help="shift parameter for the channel capacity pdf")
     parser.add_argument("--rtt_dist", type=str, default='gamma', help="use gamma or rayleigh pdf for rtt", choices=['rayleigh', 'gamma'])
     parser.add_argument("--rtt_shape", type=float, default=0, help="shape parameter for RTT pdf")   #1.25  # 3.5
     parser.add_argument("--rtt_scale", type=float, default=0, help="scale parameter for RTT pdf")   #2     # 5.5
     parser.add_argument("--rtt_shift", type=float, default=0, help="shift from zero for RTT pdf")   #2     # 10
     parser.add_argument("--qsize", type=int, default=4000 , help='queue size at the server')
     parser.add_argument("--arate", type=int, default=970 , help='arrival rate for queue size pdf')
-    parser.add_argument("--srate", type=int, default=900 , help='service rate for queue size pdf')  # originally 1000
+    parser.add_argument("--srate", type=int, default=1000 , help='service rate for queue size pdf')  # 900 for 4ms delay
+    parser.add_argument("--queue_state", type=int, default=None, help='Approximation to set number of tasks in a queue')
 
     # Carla Config file
     parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
@@ -587,7 +591,6 @@ if __name__ == "__main__":
     parser.add_argument("--obs_start_idx", type=int, default=40, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")
     parser.add_argument("--observation_res", type=str, default='80', help="The input observation dims for the object detector")
-    parser.add_argument("--shield_specs", type=int, default=2, help="which shield specsto use")
     parser.add_argument("-debug", action='store_true', help="print logs for debugging")
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 

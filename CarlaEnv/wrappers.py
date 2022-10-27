@@ -306,41 +306,6 @@ class World():
 # Safety Filter
 #===============================================================================
 
-def output_delta_T(control=None):
-    # Based on the measurement of the xi and r, (maybe speed and other factors) - we can output the delta_T 
-    # Should include some preprocessing to floor it to a multiplier
-
-    # delta_T LOGIC:
-    # It should be defined naturally as a positive int 
-    # if 0 or 1, then I have only one window or less to complete execution,  set the recover flag and execute locally for maximum robustness
-    # if any number > 1, I compare the current tx window (starts from 1) against it, and if current_Tx == delta-1 and it has not concluded processing yet, it means that next window when current_Tx == delta should be local execution regardless 
-    # raise NotImplementedError
-
-    return random.randint(1, 20)
-
-class SafetyFilter2():         # with eager_execution for tensorflow debugging purposes
-    def __init__(self):
-        self.input_shape = (1,1,2)
-        self.input_image = tf.placeholder(shape=self.input_shape, dtype=np.float32, name='xi_and_r')
-        model = tf.keras.models.load_model('1.h5')
-        self.tf_model1 = model(self.input_image)
-
-    def init_session(self,sess=None, init_logging=True):
-        if sess is None:
-            self.sess = tf.Session()
-            self.sess.run([tf.global_variables_initializer(), tf.local_variables_initializer()])
-        else:
-            self.sess = sess
-
-    def filter_control(self):
-        input = np.array([[[3, 4]]])
-        input = input.astype(np.float32)
-
-        # output = self.tf_model1.run(input)['PathDifferences3_Add'][0,0,0]
-        output = self.sess.run(self.tf_model1, feed_dict={self.input_image: input})
-
-        return output
-
 class SafetyFilter():
     def __init__(self):
         # load shield models

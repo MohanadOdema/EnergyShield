@@ -23,10 +23,11 @@ def track_completion_rate(obs_list, curb_list):
 
 parser = argparse.ArgumentParser(description="compute stats for an excel file")
 
-parser.add_argument("--model_name", type=str, default='casc_agent3', help="Name of the model")
+parser.add_argument("--model_name", type=str, default='casc_agent4', help="Name of the model")
 parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
 parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
-parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield1', 'Shield2'], default='offload')    
+parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield1', 'Shield2'], default='Shield2')    
+parser.add_argument("--phi_scale", type=int, default=20, help="scale parameter for the channel capacity pdf")
 parser.add_argument("--deadline", type=int, help="dealdine in ms", default=20)                    # Single time window is 20 ms
 parser.add_argument("--len_obs", type=int, default=4, help="How many objects to be spawned given len_route is satisfied")
 parser.add_argument("--local_belay", action='store_true', default=False, help="belay local execution until the last execution window of the dealdine")
@@ -35,6 +36,7 @@ parser.add_argument("--off_belay", action='store_true', default=False, help="bel
 parser.add_argument("--file_type", type=str, default='valid', help="The csv file to load")      
 parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
 parser.add_argument("--map", type=str, default='80p', help="80p, Town04, or Town04_OPT")
+parser.add_argument("--queue_state", type=int, default=None, help='Approximation to set number of tasks in a queue')
 
 params = vars(parser.parse_args())
 
@@ -50,17 +52,27 @@ elif params['off_belay']:                # for offloading policies
 else:
     sup_string = 'early'
 
+if params['phi_scale'] != 20:
+    phi_string = '_'+str(params['phi_scale'])+'Mbps'
+else:
+    phi_string = ''
 
-csv_file_path = os.path.join("./models", params['model_name'], "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), str(params['map'])+"_ResNet152_"+str(params['offload_policy'])+"_"+sup_string, 
+if params['queue_state'] != None:
+    q_string = '_queue_'+str(params['queue_state'])+'_'
+else:
+    q_string = ''
+
+csv_file_path = os.path.join("./models", params['model_name'], "experiments", "obs_"+str(params['len_obs'])+"_route_"+str(params['len_route']), str(params['map'])+"_ResNet152_"+str(params['offload_policy'])+"_"+sup_string+q_string+phi_string, 
 							"PX2_"+str(params['deadline'])+"_Safety_"+str(params['safety_filter'])+"_noise_"+str(params['gaussian']), str(params['file_type'])+"_data.csv")
-
 
 df = pd.read_csv(csv_file_path)
 
 results_dict = {}
 
+results_dict['# valid episodes'] = len(df['reward'])
 results_dict['TCR'] = track_completion_rate(df['obstacle_hit'], df['curb_hit'])
 results_dict['avg_reward'] = round(np.mean(df['reward']),2)
+results_dict['max_reward'] = round(max(df['reward']),2)
 # results_dict['normalized_avg_reward'] = round((np.mean(df['reward']))/len(df['reward']), 2)
 results_dict['cond_avg_reward'] = compute_conditional_avg(df['reward'], df['obstacle_hit'], df['curb_hit'])
 results_dict['distance_traveled'] = round(np.mean(df['dist_traveled']), 2)

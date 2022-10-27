@@ -275,12 +275,12 @@ class OffloadingManager():
                 self.process_current = True                
                 assert self.transit_window == self.delta_T              
             # Local Execution Behavior - either in explicit local policies or adaptive
-            if self.local_early and not self.rx_flag:    # not rx_flag to ensure executing when no recovery cond.               
+            if self.local_early and not self.rx_flag and not self.initialize:    # not rx_flag to ensure executing when no recovery cond.               
                 self.process_current = True
                 self.rx_flag = True
                 self.belaying = True
                 assert self.transit_window == 1
-            elif self.local_belay and not self.rx_flag:
+            elif self.local_belay and not self.rx_flag and not self.initialize:
                 self.rx_flag = False
                 self.belaying = True 
                 self.exp_off_latency, self.exp_off_energy = 0, 0   
@@ -513,7 +513,7 @@ class ShiftedGammaSampler(TrueSamples):
 
 class NetworkQueueModel(TrueSamples):
     # Queuing Delays
-    def __init__(self, estimation_fn, qsize, arate, srate):
+    def __init__(self, estimation_fn, qsize, arate, srate, queue_state):
         self.srate = srate
         self.load = arate/self.srate
         self.xk = np.arange(qsize)
@@ -521,10 +521,14 @@ class NetworkQueueModel(TrueSamples):
         self.pk_sum = sum(self.pk)
         self.pk_norm = tuple(p / self.pk_sum for p in self.pk)
         self.distribution = rv_discrete(name='Queuing', values=(self.xk, self.pk_norm))
+        self.queue_state = queue_state
         super().__init__(estimation_fn)
 
     def sample(self, no_of_samples=1):
         # assuming each task takes 1 ms
-        occupancy = self.distribution.rvs(size=no_of_samples)
+        if self.queue_state == None:
+            occupancy = self.distribution.rvs(size=no_of_samples)
+        else:
+            occupancy = np.array([(self.queue_state + 1) * 1000])
         wait_time = occupancy/self.srate
         return wait_time
