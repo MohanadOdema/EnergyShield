@@ -21,9 +21,28 @@ for argwhole in "$@"; do
     esac
 done
 
-
-# Legacy
-PROCESSING="s/fastbatllnn/fastbatllnn/"
+if [ "$TOKEN" != "" ]; then
+    if [ "$TOKEN" != "public" ]; then
+        echo "$TOKEN" | docker login -u jferlez --password-stdin
+        if [ $? != 0 ]; then
+            echo "ERROR: Unable to login to DockerHub using available access token! Quitting..."
+            exit 1
+        fi
+    fi
+    docker pull jferlez/energyshield-carla-deps:$BUILD
+    if [ $? != 0 ]; then
+        echo "ERROR: docker pull command failed! Quitting..."
+        exit 1
+    fi
+    PROCESSING="s/energyshield-carla-deps:local/jferlez\/energyshield-carla-deps:$BUILD/"
+    cd "$SCRIPT_DIR"
+    echo "$TOKEN" > .hub_token
+else
+    cd "$SCRIPT_DIR/DockerDeps"
+    wget https://www.dropbox.com/s/v2sji0qms2glq3u/TensorFlow.zip && unzip TensorFlow.zip && rm TensorFlow.zip
+    docker build -t energyshield-carla-deps:local .
+    PROCESSING="s/energyshield-carla-deps/energyshield-carla-deps/"
+fi
 
 cd "$SCRIPT_DIR"
 
@@ -39,4 +58,4 @@ else
 fi
 
 #cat Dockerfile | sed -u -e $PROCESSING | docker build --no-cache --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t energyshield:${user} -f- .
-cat Dockerfile | sed -u -e $PROCESSING | docker build --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t energyshield:${user} -f- .
+cat Dockerfile | sed -u -e $PROCESSING | docker build --no-cache --build-arg USER_NAME=carla --build-arg UID=$UID --build-arg GID=$GID --build-arg CORES=$CORES -t energyshield:${user} -f- .
