@@ -37,7 +37,8 @@ parser.add_argument("--file_type", type=str, default='valid', help="The csv file
 parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
 parser.add_argument("--map", type=str, default='Town04_OPT', help="80p, Town04, or Town04_OPT")
 parser.add_argument("--queue_state", type=int, default=None, help='Approximation to set number of tasks in a queue')
-
+parser.add_argument("--start_idx", type=int, default=None, help='if a range is wanted from the excel file')
+parser.add_argument("--end_idx", type=int, default=None, help='if a range is wanted from the excel file')
 params = vars(parser.parse_args())
 
 # For naming purposes
@@ -70,7 +71,12 @@ df = pd.read_csv(csv_file_path)
 results_dict = {}
 
 results_dict['# valid episodes'] = len(df['reward'])
-results_dict['TCR'] = track_completion_rate(df['obstacle_hit'], df['curb_hit'])
+if params['start_idx'] is None and params['end_idx'] is None:
+	results_dict['TCR'] = track_completion_rate(df['obstacle_hit'], df['curb_hit'])
+elif params['start_idx'] is not None:
+	results_dict['TCR'] = track_completion_rate(df['obstacle_hit'][params['start_idx']:], df['curb_hit'][params['start_idx']:])
+elif params['end_idx'] is not None:
+	results_dict['TCR'] = track_completion_rate(df['obstacle_hit'][:params['end_idx']], df['curb_hit'][:params['end_idx']])
 results_dict['avg_reward'] = round(np.mean(df['reward']),2)
 results_dict['max_reward'] = round(max(df['reward']),2)
 # results_dict['normalized_avg_reward'] = round((np.mean(df['reward']))/len(df['reward']), 2)

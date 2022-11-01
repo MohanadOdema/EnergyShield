@@ -55,7 +55,8 @@ ego_y_safe_right = df_safe_right['ego_y']
 ego_x_safe_left = df_safe_left['ego_x']     # True_True_1753
 ego_y_safe_left = df_safe_left['ego_y']
 
-plt.figure(figsize=(5.5,5.5))
+plt.figure(figsize=(4,4))
+# plt.locator_params(nbins=4) 
 
 obstacles = []
 
@@ -66,12 +67,12 @@ y_second_figure = [-162, -180, -202.5, -209]
 # x_second_figure = [406.7, 404.5, 409.8, 408] # 1781
 # y_second_figure = [-161, -182, -202.5, -219]
 
-plt.ylabel("y-coordinates", fontsize=12)
-plt.xlabel("x-coordinates", fontsize=12)
-plt.xticks(fontsize=12)
-plt.yticks(fontsize=12)
+plt.ylabel("y-coordinates", fontsize=14)
+plt.xlabel("x-coordinates", fontsize=14)
+plt.xticks(fontsize=13)
+plt.yticks(fontsize=13)
 
-plt.plot(route_x, route_y, color='#2F5061', linewidth=2, linestyle='-.')
+plt.plot(route_x, route_y, color='#2F5061', linewidth=2.5, linestyle='-.')
 
 if params['gaussian']: 
     plt.plot(ego_x_safe_left, ego_y_safe_left, color='#4297A0', linewidth=2, linestyle='-')
@@ -80,13 +81,15 @@ if params['gaussian']:
 else:    
     plt.xlim(405, 413)
     plt.ylim(-240, -120)
-    plt.plot(ego_x_unsafe, ego_y_unsafe, linewidth=2, color='#870A30', linestyle='-')
+    plt.plot(ego_x_unsafe, ego_y_unsafe, linewidth=2.5, color='#870A30', linestyle='-')
     plt.plot(x_first_figure, y_first_figure, color='#AA1945', linewidth=0, marker='_', markersize=70)
-    plt.plot(ego_x_safe_right, ego_y_safe_right, color='#4297A0', linewidth=2, linestyle='-')
+    plt.plot(ego_x_safe_right, ego_y_safe_right, color='#4297A0', linewidth=2.5, linestyle='-')
 
 print(route_x)
 print(route_y)
 
+plt.tight_layout()
+plt.savefig('./plot_data/trajectory_noise_' +str(params['gaussian']) + '.svg', bbox_inches='tight')
 plt.show()
 
 

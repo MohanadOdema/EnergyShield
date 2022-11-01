@@ -482,11 +482,11 @@ class CarlaOffloadEnv(gym.Env):
             # y = random.randrange(-50, 1, 5)
             y = 0
             if x in (-1,0,1):
-                yaw = random.randrange(-45, 46, 10)
+                yaw = random.randrange(-60, 61, 10)
             elif x > 1:
-                yaw = random.randrange(5, 46, 10)
+                yaw = random.randrange(5, 61, 10)
             elif x < -1:
-                yaw = random.randrange(-45, -1, 10)
+                yaw = random.randrange(-60, -1, 10)
             # if x > 0:
             #     yaw = random.randrange(5, 46, 10)
             # elif x < 0:
