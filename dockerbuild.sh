@@ -41,6 +41,7 @@ else
     cd "$SCRIPT_DIR/DockerDeps"
     wget https://www.dropbox.com/s/v2sji0qms2glq3u/TensorFlow.zip && unzip TensorFlow.zip && rm TensorFlow.zip
     docker build -t energyshield-carla-deps:local .
+    rm -r TensorFlow
     PROCESSING="s/energyshield-carla-deps/energyshield-carla-deps/"
 fi
 
