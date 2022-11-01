@@ -120,8 +120,6 @@ df_save.to_csv("./plot_data/distance/Hist_Shield2_"+sup_string+"_Safety_"+str(pa
 plt.step(keys_list, avg_energy_list, where='post')
 plt.show()
 
-# plt.bar(norm_energy_dict.keys(), 
-
 
 
  

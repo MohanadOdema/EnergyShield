@@ -192,8 +192,6 @@ class CarlaOffloadEnv(gym.Env):
             self.vehicle = Vehicle(self.world, spawn_transform,
                                    on_collision_fn=lambda e: self._on_collision(e),
                                    on_invasion_fn=lambda e: self._on_invasion(e))
-
-            # self.vehicle.set_location(transform.location + carla.Location(y=-80))   #x= (-3.5,8)   # i need to do it on spawn time/ or check where the obstacle is messing up
             
             if self.model_name == 'BasicAgent':
                 self.agent = BasicAgent(self.vehicle, target_speed=40)
