@@ -2,10 +2,8 @@ FROM carlasim/carla:0.9.11
 
 
 # Should only be built with user_name=carla
-ARG USER_NAME
-ARG UID
-ARG GID
-ARG CORES
+ENV USER_NAME=carla
+
 
 ENV BASE_URL=https://us.download.nvidia.com/XFree86/Linux-x86_64
 ENV DRIVER_VERSION=515.76
@@ -88,6 +86,12 @@ RUN cd /tmp && \
     rm cuda_11.8.0_520.61.05_linux.run && \
     apt-get -y install --no-install-recommends libcudnn8 libcudnn8-dev
 
+# Install latest neovim
+# Can't be installed in 18.04
+# RUN wget https://github.com/neovim/neovim/releases/download/v0.8.0/nvim-linux64.deb 
+# RUN apt install ./nvim-linux64.deb
+# RUN rm ./nvim-linux64.deb
+
 RUN dpkg -r --force-depends "python3-httplib2"
 RUN dpkg -r --force-depends "python3-pexpect"
 RUN python3.10 -m pip install --upgrade pip && \
@@ -119,37 +123,14 @@ RUN delgroup --only-if-empty dialout
 RUN delgroup --only-if-empty fax
 RUN delgroup --only-if-empty voice
 
-# RUN addgroup --gid ${GID} ${USER_NAME}
-# RUN useradd -rm -d /home/${USER_NAME} -s /bin/bash -g ${USER_NAME} -G sudo -u ${UID} ${USER_NAME}
-RUN groupmod --gid $GID ${USER_NAME}
-RUN usermod --uid $UID ${USER_NAME}
-RUN usermod -a -G sudo ${USER_NAME}
-RUN echo "${USER_NAME}:${USER_NAME}" | chpasswd
-RUN mkdir -p /home/${USER_NAME}/.ssh
 
-RUN mkdir -p /home/${USER_NAME}/results
-RUN mkdir -p /media/azuredata
-RUN chown -R ${UID}:${GID} /media/azuredata
-RUN mkdir -p /media/azuretmp
-RUN chown -R ${UID}:${GID} /media/azuretmp
-
-# switch to unpriviledged user, and configure remote access
-WORKDIR /home/${USER_NAME}/tools
-RUN chown -R ${UID}:${GID} /home/${USER_NAME}
-
-USER ${USER_NAME}
-RUN ssh-keygen -t rsa -q -f /home/${USER_NAME}/.ssh/id_rsa -N ""
-RUN cat /home/${USER_NAME}/.ssh/id_rsa.pub >> /home/${USER_NAME}/.ssh/authorized_keys
 
 # Install neovim stuff:
-# Install latest neovim
-RUN wget https://github.com/neovim/neovim/releases/download/v0.8.0/nvim-linux64.deb 
-RUN apt install ./nvim-linux64.deb
-RUN rm ./nvim-linux64.deb
-RUN mkdir -p /home/${USER_NAME}/.local/share/nvim/site/pack/packer/opt/
-RUN git clone --depth=1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/opt/packer.nvim
-RUN mkdir -p /home/${USER_NAME}/.local/nvim
-RUN git clone --depth=1 https://github.com/jferlez/nvim-config.git /home/${USER_NAME}/.config/nvim
+
+# RUN mkdir -p /home/${USER_NAME}/.local/share/nvim/site/pack/packer/opt/
+# RUN git clone --depth=1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/opt/packer.nvim
+# RUN mkdir -p /home/${USER_NAME}/.local/nvim
+# RUN git clone --depth=1 https://github.com/jferlez/nvim-config.git /home/${USER_NAME}/.config/nvim
 
 # WORKDIR /home/${USER_NAME}/tools/FastBATLLNN/HyperplaneRegionEnum
 # RUN python3.9 posetFastCharm_numba.py
@@ -157,7 +138,7 @@ RUN git clone --depth=1 https://github.com/jferlez/nvim-config.git /home/${USER_
 WORKDIR /home/${USER_NAME}
 
 #RUN echo "export PYTHONPATH=/home/${USER_NAME}/tools/FastBATLLNN:/home/${USER_NAME}/tools/FastBATLLNN/HyperplaneRegionEnum:/home/${USER_NAME}/tools/FastBATLLNN/TLLnet:/home/${USER_NAME}/tools/nnenum/src/nnenum" >> /home/${USER_NAME}/.bashrc
-RUN sed -i "4i export PYTHONPATH=/home/${USER_NAME}/tools/FastBATLLNN:/home/${USER_NAME}/tools/FastBATLLNN/HyperplaneRegionEnum:/home/${USER_NAME}/tools/FastBATLLNN/TLLnet:/home/${USER_NAME}/tools/nnenum/src/nnenum" /home/${USER_NAME}/.bashrc
+#RUN sed -i "4i export PYTHONPATH=/home/${USER_NAME}/tools/FastBATLLNN:/home/${USER_NAME}/tools/FastBATLLNN/HyperplaneRegionEnum:/home/${USER_NAME}/tools/FastBATLLNN/TLLnet:/home/${USER_NAME}/tools/nnenum/src/nnenum" /home/${USER_NAME}/.bashrc
 RUN echo "export TERM=xterm-256color" >> /home/${USER_NAME}/.bashrc
 RUN echo "export COLORTERM=truecolor" >> /home/${USER_NAME}/.bashrc
 RUN echo "export TERM_PROGRAM=iTerm2.app" >> /home/${USER_NAME}/.bashrc
@@ -167,7 +148,7 @@ RUN echo "set-option -gas terminal-overrides \"*:RGB\"" >> /home/${USER_NAME}/.t
 
 RUN git clone https://github.com/carla-simulator/carla carla
 RUN cd /home/${USER_NAME}/carla && git checkout 0.9.11
-COPY --chown=${UID}:${GID} ./DockerConfig/Setup.sh /home/${USER_NAME}/carla/Util/BuildTools/Setup.sh
+COPY --chown=${USER_NAME} ./DockerConfig/Setup.sh /home/${USER_NAME}/carla/Util/BuildTools/Setup.sh
 
 USER root
 RUN update-alternatives --install /usr/bin/clang++ clang++ /usr/lib/llvm-8/bin/clang++ 180
@@ -175,19 +156,20 @@ RUN update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang
 
 # Save EnergyShield clone for non-deps image
 # COPY --chown=${UID}:${GID} ./EnergyShield /home/${USER_NAME}/EnergyShield/EnergyShield
-COPY --chown=${UID}:${GID} ./TensorFlow /home/${USER_NAME}/EnergyShield/TensorFlow
+COPY --chown=${USER_NAME} ./TensorFlow /home/${USER_NAME}/EnergyShield/TensorFlow
 
 RUN cd /home/${USER_NAME}/EnergyShield/TensorFlow/models && python3.10 -m pip install -e research
 
-USER ${USER_NAME}
+USER root
 RUN cd /home/${USER_NAME}/carla && make PythonAPI ARGS="--python-version=3.10"
 
-USER root
+
 RUN cd /home/${USER_NAME}/carla/PythonAPI/carla && python3.10 ./setup.py install
+RUN rm -rf /home/${USER_NAME}/carla
 
 RUN chsh -s /bin/bash ${USER_NAME}
 
-RUN chown -R ${UID}:${GID} /home/${USER_NAME}/
+RUN chown -R ${USER_NAME} /home/${USER_NAME}/
 
 # Remove these from dependencies image:
 # COPY ./DockerConfig/startup.sh /usr/local/bin/startup.sh
