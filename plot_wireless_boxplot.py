@@ -20,9 +20,9 @@ plt.rcParams["figure.figsize"]=(6,2.5)
 
 parser = argparse.ArgumentParser(description="compute stats for an excel file")
 
-parser.add_argument("--off_belay", action='store_true', default=False, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )  
+parser.add_argument("--off_belay", action='store_true', default=True, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )  
 parser.add_argument("--file_type", type=str, default='valid', help="The csv file to load")  
-parser.add_argument("--mode", type=str, default='energy', choices=['energy', 'windows'])    
+parser.add_argument("--mode", type=str, default='energy', choices=['energy', 'windows'])     
 
 params = vars(parser.parse_args())
 
@@ -64,7 +64,8 @@ missed_windows['q9'] = normalize_windows(list(df_10Mbps_q9['missed_windows']), l
 missed_windows['q19'] = normalize_windows(list(df_10Mbps_q19['missed_windows']), list(df_10Mbps_q19['ticks']))
 missed_windows['q49'] = normalize_windows(list(df_10Mbps_q49['missed_windows']), list(df_10Mbps_q49['ticks']))
 
-labels_list = [r'$\phi$=20Mbps', r'$\phi$=10Mbps', r'$\phi$=5Mbps', 'q=10 ms', 'q=20 ms', 'q=50 ms']
+# unicodes for sigma and phi: #03C3 - # 03d5
+labels_list = [u'\u03C3$_{\phi}$=20Mbps', u'\u03C3$_{\phi}$=10Mbps', u'\u03C3$_{\phi}$=5Mbps', 'q=10 ms', 'q=20 ms', 'q=50 ms']
 
 mega_energy_list = [energy_dict['20Mbps'], energy_dict['10Mbps'], energy_dict['5Mbps'], energy_dict['q9'], energy_dict['q19'], energy_dict['q49']]
 mega_missed_windows = [missed_windows['20Mbps'], missed_windows['10Mbps'], missed_windows['5Mbps'], missed_windows['q9'], missed_windows['q19'], missed_windows['q49']]

@@ -148,8 +148,6 @@ def train(params, start_carla=True, restart=False):
     bbox_shape = np.array([10*4])  # detections output size from the object detector (originally 300*4 but we max 5*4 to keep small network size)
     category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)   
 
-    # print(category_index.items())
-
     if params['carla_map'] is not None: 
         params['carla_map'] = None          # To only load the map once
     if params['weather'] is not None:
@@ -257,23 +255,6 @@ def train(params, start_carla=True, restart=False):
             while not terminal_state:
                 states, input_boxes, taken_actions, values, rewards, dones = [], [], [], [], [], []
                 for _ in range(horizon):               # number of steps to simulate per training step (128)
-                    # flatten for predict and train
-
-                    # dict_keys(['detection_anchor_indices', 'raw_detection_scores', 'raw_detection_boxes', 'detection_scores', 
-                    # 'detection_classes', 'detection_multiclass_scores', 'num_detections', 'detection_boxes'])
-
-                    # *achor_indices.shape: (1,300), raw_detection_scores.shape: (1,300,91), detection_scores: (1,300) *boxes.shape: (1,300,4), *detections.shape: (1,)
-                    # print(detections['detection_anchor_indices'].shape)
-                    # print(detections['raw_detection_scores'].shape)
-                    # print(detections['detection_boxes'].shape)
-                    # print(detections['num_detections'])
-
-                    # print('indices', detections['detection_anchor_indices'])        # anchor indices are to indicate which anchor was used for the correspoiding RPI (i.e. the center of the bounding box)
-                    # print('BBOX ', detections['detection_boxes'])                   # This is not global detection box
-                    # print('scroes', np.max(detections['detection_scores']))         # how many classes are active
-
-                    # print(detections['detection_boxes'][0][0])
-
                     # first control output predictions
                     if model_name.startswith('agent'):
                         action, value = model.predict(state, write_to_summary=True)
@@ -297,8 +278,6 @@ def train(params, start_carla=True, restart=False):
                                 agnostic_mode=False)
 
                     # plt.imshow(image_np_with_detections)
-
-                    # TODO: Implement an if condition that saves an image every now and then when detecting an object
                     # plt.savefig('/home/mohanadodema/carla.png')
 
                     # Perform action
