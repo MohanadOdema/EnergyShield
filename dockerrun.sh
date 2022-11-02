@@ -9,7 +9,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 SYSTEM_TYPE=$(uname)
 PORT=5000
-HTTPPORT="3000-3002"
+HTTPPORT="2000-2002"
 GPUS="--gpus all --runtime=nvidia"
 INTERACTIVE="-d"
 SERVER="run"
@@ -21,6 +21,7 @@ MPIARGS=""
 CORES=""
 REMOVE=""
 SWAP=""
+CARLAPORT=2000
 for argwhole in "$@"; do
     IFS='=' read -r -a array <<< "$argwhole"
     arg="${array[0]}"
@@ -54,10 +55,11 @@ IFS='-' read -r -a PORTRANGE <<< "$HTTPPORT"
 if [ ${#PORTRANGE[*]} -lt 2 ]; then
     echo "error: carla port range is incorrect. Please specify a range of ports, e.g. 3000-3002" >&2; exit 1
 fi
-if ! [[ "${PORTRANGE[0]}" =~ $re ]] || ! [[ "${PORTRANGE[1]}" =~ $re ]]; then
+if ! [[ "${PORTRANGE[0]}" =~ $re ]] || ! [[ "${PORTRANGE[1]}" =~ $re ]] || ! [ $(( ${PORTRANGE[1]} - ${PORTRANGE[0]} )) = 2 ]; then
     echo "error: Invalid port specified" >&2; exit 1
 fi
 HTTPPORT="-p ${PORTRANGE[0]}-${PORTRANGE[1]}:${PORTRANGE[0]}-${PORTRANGE[1]}"
+CARLAPORT=${PORTRANGE[0]}
 
 if [ "$SERVER" = "server" ]; then
     HTTPPORT="-p ${HTTPPORT}:8080"
@@ -170,7 +172,7 @@ then
 fi
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
-    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $MPIHOSTS "$MPIARGS"
+    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS "$MPIARGS"
 else
     echo "Restarting container $EXISTING_CONTAINER (command line options except \"--server\" ignored)..."
     docker start $ATTACH $EXISTING_CONTAINER

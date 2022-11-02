@@ -4,8 +4,9 @@ INTERACTIVE=$2
 SERVER=$3
 CORES=$4
 PORTNUM=$5
-MPIHOSTS=$6
-MPIARGS="$7"
+CARLAPORT=$6
+MPIHOSTS=$7
+MPIARGS="$8"
 /usr/sbin/sshd -D &> /root/sshd_log.out &
 
 if [ ! -d /home/$USER/.ssh ]
@@ -64,7 +65,7 @@ if [ "$MPIHOSTS" != "none" ]; then
     HOSTLIST=`echo "$MPIHOSTS" | sed -E -e 's/:[^:,]+/:-1/g'`
     if [ "$MPIARGS" = "--start-carla" ]; then
         echo "Start carla triggered..." >> /home/$USER/start_carla_test.txt
-        sudo -u $USER /bin/sh -c "cd /home/$USER && /usr/local/bin/bk /home/$USER/CarlaUE4.sh -carla-port=3000 -opengl -nosound"
+        sudo -u $USER /bin/sh -c "cd /home/$USER && /usr/local/bin/bk /home/$USER/CarlaUE4.sh -carla-port=$CARLAPORT -opengl -nosound"
         sleep 2
         if [ -e /home/$USER/log.out ]; then
             chown $USER /home/$USER/log.out
