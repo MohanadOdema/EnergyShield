@@ -29,9 +29,13 @@ RUN cat /home/${USER_NAME}/.ssh/id_rsa.pub >> /home/${USER_NAME}/.ssh/authorized
 
 COPY --chown=${UID}:${GID} . /home/${USER_NAME}/EnergyShield/EnergyShield
 
-RUN chown -R ${UID}:${GID} /home/${USER_NAME}
 
 USER root
+
+RUN mv /home/${USER_NAME}/EnergyShield/models* /home/${USER_NAME}/EnergyShield/EnergyShield/models
+
+RUN chown -R ${UID}:${GID} /home/${USER_NAME}
+
 COPY ./DockerConfig/startup.sh /usr/local/bin/startup.sh
 RUN chmod 755 /usr/local/bin/startup.sh
 
