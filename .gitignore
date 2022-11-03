@@ -130,3 +130,5 @@ dmypy.json
 
 models/
 .DS_Store
+DockerDeps/models
+DockerDeps/TensorFlow
