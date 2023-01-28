@@ -17,6 +17,8 @@ RUN chown -R ${UID}:${GID} /media/azuredata
 RUN mkdir -p /media/azuretmp
 RUN chown -R ${UID}:${GID} /media/azuretmp
 
+RUN chmod 644 /root/.bashrc
+
 # switch to unpriviledged user, and configure remote access
 
 USER ${USER_NAME}
