@@ -95,7 +95,7 @@ RUN cd /tmp && \
 RUN dpkg -r --force-depends "python3-httplib2"
 RUN dpkg -r --force-depends "python3-pexpect"
 RUN python3.10 -m pip install --upgrade pip && \
-    python3.10 -m pip install numpy==1.22.4 tensorflow==2.9.2 tf-models-official==2.9.2 scipy Cython mpmath matplotlib onnx onnxruntime tf2onnx torch torchvision torchaudio pylint flake8 vim-vint 'python-lsp-server[all]' pylsp-mypy pyls-isort pynvim cdifflib tree_sitter gym networkx pandas pygame opencv-python tensorflow_hub distro ipython scikit_learn joblib ipykernel onnx_tf tensorflow_probability==0.17.0
+    python3.10 -m pip install numpy==1.22.4 tensorflow==2.9.2 tf-models-official==2.9.2 scipy==1.9.3 Cython==0.29.32 mpmath==1.2.1 matplotlib==3.6.1 onnx==1.12.0 onnxruntime==1.13.1 tf2onnx==1.12.1 torch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pylint==2.15.5 flake8==4.0.1 vim-vint==0.3.21 'python-lsp-server[all]' pylsp-mypy==0.6.3 pyls-isort==0.2.2 pynvim==0.4.3 cdifflib==1.2.6 tree_sitter==0.20.1 gym==0.26.2 networkx==2.8.8 pandas==1.5.1 pygame==2.1.2 opencv-python==4.6.0.66 tensorflow_hub==0.12.0 distro==1.8.0 ipython==8.6.0 scikit_learn==1.1.3 joblib==1.2.0 ipykernel==6.17.0 onnx_tf==1.10.0 tensorflow_probability==0.17.0
 RUN npm install -g vim-language-server node-gyp tree-sitter tree-sitter-cli
 
 RUN sed -i '16i Port 5000' /etc/ssh/sshd_config
