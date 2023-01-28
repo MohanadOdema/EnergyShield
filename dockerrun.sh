@@ -172,7 +172,7 @@ then
 fi
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
-    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS "$MPIARGS"
+    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen -e DISPLAY= $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS "$MPIARGS"
 else
     echo "Restarting container $EXISTING_CONTAINER (command line options except \"--server\" ignored)..."
     docker start $ATTACH $EXISTING_CONTAINER
