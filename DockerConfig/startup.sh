@@ -81,6 +81,6 @@ fi
 if [ "$INTERACTIVE" = "-d" ]; then
 	wait -n
 else
-	sudo -u $USER /bin/bash
+	sudo -u $USER /bin/bash -l
 	killall sshd
 fi
