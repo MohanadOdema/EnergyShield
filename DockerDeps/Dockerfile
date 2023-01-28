@@ -118,6 +118,9 @@ RUN echo "" >>  /usr/local/bin/bk
 RUN echo ") >>\${LOGFILE:=log.out} 2>&1 &" >>  /usr/local/bin/bk
 RUN chmod 755 /usr/local/bin/bk
 
+RUN touch /root/.bashrc
+RUN chmod 700 /root/.bashrc
+
 # Delete some groups that overlap with MacOS standard user groups
 RUN delgroup --only-if-empty dialout
 RUN delgroup --only-if-empty fax
