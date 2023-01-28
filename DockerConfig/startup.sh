@@ -65,7 +65,7 @@ if [ "$MPIHOSTS" != "none" ]; then
     HOSTLIST=`echo "$MPIHOSTS" | sed -E -e 's/:[^:,]+/:-1/g'`
     if [ "$MPIARGS" = "--start-carla" ]; then
         echo "Start carla triggered..." >> /home/$USER/start_carla_test.txt
-        sudo -u $USER /bin/sh -c "cd /home/$USER && /usr/local/bin/bk /home/$USER/CarlaUE4.sh -carla-port=$CARLAPORT -opengl -nosound"
+        sudo -u $USER /bin/sh -c "cd /home/$USER && /usr/local/bin/bk SDL_VIDEODRIVER=offscreen DISPLAY= /home/$USER/CarlaUE4.sh -carla-port=$CARLAPORT -opengl -nosound"
         sleep 2
         if [ -e /home/$USER/log.out ]; then
             chown $USER /home/$USER/log.out
