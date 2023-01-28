@@ -32,7 +32,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1
 
 RUN apt-get update && \
     apt-get -y upgrade && \
-    apt -y install python3-pip clang-8 lld-8 bash ninja-build zlib1g-dev libjpeg-dev libtiff-dev rsync cmake gfortran libgsl-dev libfftw3-3 libfftw3-dev libsuitesparse-dev git libgmp-dev vim emacs nano screen tmux ipython3 openssh-server sudo curl psmisc locales util-linux git-lfs kmod && \
+    apt -y install python3-pip clang-8 lld-8 bash ninja-build zlib1g-dev libjpeg-dev libtiff-dev rsync cmake gfortran libgsl-dev libfftw3-3 libfftw3-dev libsuitesparse-dev git libgmp-dev vim emacs nano screen tmux ipython3 openssh-server sudo curl psmisc locales util-linux git-lfs kmod xdg-user-dirs xdg-utils && \
     curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     apt -y install nodejs
 # Install MS PowerShell
