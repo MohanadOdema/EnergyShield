@@ -156,10 +156,10 @@ RUN update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang
 
 # Save EnergyShield clone for non-deps image
 # COPY --chown=${UID}:${GID} ./EnergyShield /home/${USER_NAME}/EnergyShield/EnergyShield
-COPY --chown=${USER_NAME} ./TensorFlow /home/${USER_NAME}/EnergyShield/TensorFlow
-COPY --chown=${USER_NAME} ./models /home/${USER_NAME}/EnergyShield/models
+COPY --chown=${USER_NAME} ./TensorFlow /home/${USER_NAME}/custom/TensorFlow
+COPY --chown=${USER_NAME} ./models /home/${USER_NAME}/custom/models
 
-RUN cd /home/${USER_NAME}/EnergyShield/TensorFlow/models && python3.10 -m pip install -e research
+RUN cd /home/${USER_NAME}/custom/TensorFlow/models && python3.10 -m pip install -e research
 
 USER root
 RUN cd /home/${USER_NAME}/carla && make PythonAPI ARGS="--python-version=3.10"

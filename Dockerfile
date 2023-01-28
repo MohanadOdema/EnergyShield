@@ -27,12 +27,12 @@ RUN mkdir -p /home/${USER_NAME}/results
 RUN ssh-keygen -t rsa -q -f /home/${USER_NAME}/.ssh/id_rsa -N ""
 RUN cat /home/${USER_NAME}/.ssh/id_rsa.pub >> /home/${USER_NAME}/.ssh/authorized_keys
 
-COPY --chown=${UID}:${GID} . /home/${USER_NAME}/EnergyShield/EnergyShield
+COPY --chown=${UID}:${GID} . /home/${USER_NAME}/EnergyShield
 
 
 USER root
 
-RUN mv /home/${USER_NAME}/EnergyShield/models* /home/${USER_NAME}/EnergyShield/EnergyShield/models
+RUN mv /home/${USER_NAME}/custom/models* /home/${USER_NAME}/EnergyShield/models
 
 RUN chown -R ${UID}:${GID} /home/${USER_NAME}
 
