@@ -1,12 +1,12 @@
-# EnergyShield (ICCPS '23, Submission 56)
+# EnergyShield (ICCPS '23, Submission 251)
 
-FastBATLLNN is a fast verifier of box-like (hyper-rectangle) output properties for Two-Level Lattice (TLL) Neural Networks. It is described in the enclosed submission HSCC_56.pdf, hereafter referred to as [EnergyShield-ICCPS23]
+EnergyShield is a framework for provably-safe offloading of neural network controllers at the edge. It is described in the enclosed submission ICCPS23_251.pdf, hereafter referred to as [EnergyShield-ICCPS23].
 
-This README describes how to replicate the results in [EnergyShield-ICCPS23] using the code supplied in this virtual machine. This includes generating raw verification data and creating plots for three numerical experiments:
+This README describes how to replicate the results in [EnergyShield-ICCPS2023] using the code supplied in this virtual machine. This includes generating new experimental data from new Carla simulation instances and creating plots for three numerical experiments:
 
-	(Experiment 1) Scalability of FastBATLLNN as a function of the input dimension of the TLL to be verified (Section 6.2)
-	(Experiment 2) Scalability of FastBATLLNN as a function of TLL NN size, viz. number of local linear functions (Section 6.3)
-	(Experiment 3) Comparison of FastBATLLNN with generic NN verifiers (Section 6.4)
+	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
+	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
+	(Experiment 3) Generality to other neural network controllers (Section 5.4) 
 
 
 ## Contents
@@ -41,7 +41,7 @@ Commands meant to be executed inside the host or container will be prefixed with
 **SOFTWARE (HOST):**
 
 1. Un-virtualized Linux operating system (any distribution that meets the remaining requirements will likely work)
-2. Official Linux NVIDIA drivers **(version >= 515.76 is _required_)**
+2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is _required_)**
 3. A recent version of [Docker](https://docker.com) **(version >= 19.03)**
 4. A recent version of `git` on the path
 5. The `bash` shell installed in `/bin/bash`
@@ -68,7 +68,7 @@ To start the EnergyShield Docker container, exectute the following in a Bash she
 
 ```Bash
 # HOST COMMANDS
-git clone --recursive https://github.com/jferlez/EnergyShield
+git clone --recursive https://github.com/MohanadOdema/EnergyShield
 cd EnergyShield
 ./dockerbuild.sh # WARNING: downloads ~30GB of data, and may take > 1 hour!
 ./dockerrun.sh --interactive --start-carla
@@ -95,4 +95,14 @@ Change to the EnergyShield directory inside the container:
 # CONTAINER COMMANDS
 cd /home/carla/EnergyShield
 ```
-> **NOTE:** All subsequent **CONTAINER** paths in this readme are assumed to be relative to `/home/carla/EnergyShield`.
+> **NOTE:** All subsequent **CONTAINER** paths in this readme are assumed to be relative to `/home/carla/EnergyShield`, unless otherwise noted.
+
+### _(iv) Results Paths_
+
+The output produced by subsequent experiment scripts will accessible from the **HOST** path:
+
+```Bash
+$HOST_LOCATION/EnergyShield/container_results
+```
+
+This path is [bind-mounted](https://docs.docker.com/storage/bind-mounts/) to `/home/carla/results` in the **CONTAINER**: i.e. the contents of one will mirror the contents of the other.
