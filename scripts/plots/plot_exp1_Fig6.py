@@ -1,9 +1,11 @@
 import types
-import os
+import os, glob
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
+
+# Analysis for cont local mode
 
 def obs_y_coordinate(x_coordinate):
     return (-95.715*x_coordinate) + 38737.9974
@@ -34,11 +36,17 @@ parser.add_argument("--map", type=str, default='80p', help="80p, Town04, or Town
 
 params = vars(parser.parse_args())
 
-prefix = './models/casc_agent_1/experiments/obs_4_route_short/Town04_OPT_ResNet152_local_cont/'
+prefix = './models/'+params['model_name']+'/experiments/obs_4_route_short/Town04_OPT_ResNet152_local_cont/'
 
-trajectory_unsafe = prefix + "PX2_100_Safety_False_noise_False/plots/train_1754.csv"    # obstacle: 406.45, -168.5
-trajectory_safe_right = prefix + "PX2_100_Safety_True_noise_False/plots/train_1747.csv"       #  
-trajectory_safe_left = prefix + "PX2_100_Safety_True_noise_True/plots/train_1753.csv"
+if params['model_name'] == 'casc_agent_1':
+    trajectory_unsafe = prefix + "PX2_100_Safety_False_noise_False/plots/train_1754.csv"    
+    trajectory_safe_right = prefix + "PX2_100_Safety_True_noise_False/plots/train_1747.csv"      
+    trajectory_safe_left = prefix + "PX2_100_Safety_True_noise_True/plots/train_1753.csv"
+
+else:     # random file for demonstration
+    trajectory_unsafe = glob.glob(prefix + "PX2_100_Safety_False_noise_False/plots/*.csv")[0]    
+    trajectory_safe_right = glob.glob(prefix + "PX2_100_Safety_True_noise_False/plots/*.csv")[0]     
+    trajectory_safe_left = glob.glob(prefix + "PX2_100_Safety_True_noise_True/plots/*.csv")[0]
 
 df_unsafe = pd.read_csv(trajectory_unsafe)
 df_safe_right = pd.read_csv(trajectory_safe_right)
@@ -59,6 +67,7 @@ plt.figure(figsize=(4,4))
 
 obstacles = []
 
+# The following list were defined statically according to the obstacle coordinates in the generate .csv files
 y_first_figure = [-167, -188, -194, -205]
 x_first_figure = obs_x_coordinate(y_first_figure)
 x_second_figure = [407.4, 407.8, 407.68, 408.1] # 1753
@@ -88,8 +97,4 @@ print(route_x)
 print(route_y)
 
 plt.tight_layout()
-plt.savefig('./plot_data/trajectory_noise_' +str(params['gaussian']) + '.svg', bbox_inches='tight')
-plt.show()
-
-
-
+plt.savefig('./results/Fig6_traj_noise_' +str(params['gaussian']) + '.pdf', bbox_inches='tight')

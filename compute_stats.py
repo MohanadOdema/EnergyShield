@@ -23,12 +23,12 @@ def track_completion_rate(obs_list, curb_list):
 
 parser = argparse.ArgumentParser(description="compute stats for an excel file")
 
-parser.add_argument("--model_name", type=str, default='casc_agent4', help="Name of the model")
+parser.add_argument("--model_name", type=str, default='casc_agent1', help="Name of the model")
 parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
 parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
 parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield1', 'Shield2'], default='Shield2')    
 parser.add_argument("--phi_scale", type=int, default=20, help="scale parameter for the channel capacity pdf")
-parser.add_argument("--deadline", type=int, help="dealdine in ms", default=20)                    # Single time window is 20 ms
+parser.add_argument("--deadline", type=int, help="dealdine in ms", default=100)                    # Single time window is 20 ms
 parser.add_argument("--len_obs", type=int, default=4, help="How many objects to be spawned given len_route is satisfied")
 parser.add_argument("--local_belay", action='store_true', default=False, help="belay local execution until the last execution window of the dealdine")
 parser.add_argument("--local_early", action='store_true', default=False, help="instantly perform local execution at the first attainable window of the dealdine")
