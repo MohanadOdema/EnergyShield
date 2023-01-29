@@ -44,11 +44,11 @@ sh ./scripts/exp1_generate_results.sh `model`
 ```
 The generated figures can be found in .pdf as follows:
 
-./results/Fig5_Energy.pdf
-./results/Fig5_Safety.pdf
-./results/Fig6_traj_noise_False.pdf
-./results/Fig6_traj_noise_True.pdf
-./results/Fig7_Ergy_v_dist.pdf
+	./results/Fig5_Energy.pdf
+	./results/Fig5_Safety.pdf
+	./results/Fig6_traj_noise_False.pdf
+	./results/Fig6_traj_noise_True.pdf
+	./results/Fig7_Ergy_v_dist.pdf
 
 The 'distance per 1 m' statistics used to implement Figure 7 were generated for the selected `model` under `./results/distance/`. Note also that if users are regenerating their own results, Figure 6 trajectories may not exhibit the same driving patterns as ours for it depends on the RL agent's driving decisions within the episode.
 
@@ -68,8 +68,8 @@ sh ./scripts/exp2_generate_results.sh `model`
 
 This will generate the box and whisker plots under varying network connectivity conditions:
 
-./results/Fig8_windows.pdf
-./results/Fig9_energy.pdf
+	./results/Fig8_windows.pdf
+	./results/Fig9_energy.pdf
 
 ## 5. Experiment 3 - Generality to other controllers
 
