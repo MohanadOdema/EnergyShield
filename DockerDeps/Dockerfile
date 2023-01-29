@@ -84,7 +84,15 @@ RUN cd /tmp && \
     chmod 644 /etc/profile.d/cuda.sh && \
     /bin/bash -c "source /etc/profile.d/cuda.sh && ldconfig" && \
     rm cuda_11.8.0_520.61.05_linux.run && \
-    apt-get -y install --no-install-recommends libcudnn8 libcudnn8-dev
+    apt-get -y install --no-install-recommends libcudnn8=8.6.0.163-1+cuda11.8 libcudnn8-dev=8.6.0.163-1+cuda11.8
+RUN echo '\
+Package: libcudnn8\n\
+Pin: origin\n\
+Pin-Priority: 999\n\
+\n\
+Package: libcudnn8-dev\n\
+Pin: origin\n\
+Pin-Priority: 999' >> /etc/apt/preferences.d/cudnn.pref
 
 # Install latest neovim
 # Can't be installed in 18.04
