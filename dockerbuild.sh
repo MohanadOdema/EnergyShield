@@ -40,7 +40,7 @@ if [ "$TOKEN" != "" ]; then
 else
     cd "$SCRIPT_DIR/DockerDeps"
     wget https://www.dropbox.com/s/v2sji0qms2glq3u/TensorFlow.zip && unzip TensorFlow.zip && rm TensorFlow.zip
-    wget https://drive.google.com/file/d/1JYnrtAYDDPcGgPm5Q6P0DFq5KkhzEx2w/view?usp=sharing && unzip models.zip && rm models.zip
+    wget https://drive.google.com/file/d/1ryR7FuCEwSy5KiOBlVQQ5OpPMQEEZdXn/view?usp=sharing && unzip models.zip && rm models.zip
     docker build -t energyshield-carla-deps:local .
     rm -r TensorFlow
     PROCESSING="s/energyshield-carla-deps/energyshield-carla-deps/"
