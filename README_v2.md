@@ -37,6 +37,8 @@ where `model` is the name of the RL agent (default: "casc_agent_1_new"), whereas
 
 This script generate .csv files for each configuration as will be needed for the plots. Though not required, the newly generated directories with all detailed information and .csv files can be found under `/EnergyShield/models/$model$/experiments/`
 
+#### HERE JUST WRITE
+
 To generate the first barplot in Figure 5, run the following script:
 ```Bash
 sh ./scripts/exp1_generate_results.sh `model`

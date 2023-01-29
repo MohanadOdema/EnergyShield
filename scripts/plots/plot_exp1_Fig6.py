@@ -67,6 +67,7 @@ plt.figure(figsize=(4,4))
 
 obstacles = []
 
+# The following list were defined statically according to the obstacle coordinates in the generate .csv files
 y_first_figure = [-167, -188, -194, -205]
 x_first_figure = obs_x_coordinate(y_first_figure)
 x_second_figure = [407.4, 407.8, 407.68, 408.1] # 1753

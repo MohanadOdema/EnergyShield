@@ -20,6 +20,7 @@ plt.rcParams["figure.figsize"]=(6,2.5)
 
 parser = argparse.ArgumentParser(description="compute stats for an excel file")
 
+parser.add_argument("--model_name", type=str, required=True, help="Name of the model to train. Output written to models/model_name") #choices=['agent1', 'agent2', 'agent3', 'agent4', 'casc_agent1', 'casc_agent2', 'casc_agent3', 'casc_agent4', 'BasicAgent', 'BehaviorAgent'])
 parser.add_argument("--off_belay", action='store_true', default=True, help="belay till delta_T expires to resume processing or execute local at the last attainable window" )  
 parser.add_argument("--file_type", type=str, default='valid', help="The csv file to load")  
 parser.add_argument("--mode", type=str, default='energy', choices=['energy', 'windows'])     
@@ -32,19 +33,18 @@ else:
     sup_string = 'early'
 
 # ALl safety filter True gaussian False
-df_20Mbps_q1 = pd.read_csv(os.path.join("./models", "casc_agent_1", "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string, 
+df_20Mbps_q1 = pd.read_csv(os.path.join("./models", params['model_name'], "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string, 
                             "PX2_100_Safety_True_noise_False", "valid_data.csv"))
-df_10Mbps_q1 = pd.read_csv(os.path.join("./models", "casc_agent_1", "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_10Mbps", 
+df_10Mbps_q1 = pd.read_csv(os.path.join("./models", params['model_name'], "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_10Mbps", 
                             "PX2_100_Safety_True_noise_False", "valid_data.csv"))
-df_5Mbps_q1 = pd.read_csv(os.path.join("./models", "casc_agent_1", "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_5Mbps", 
+df_5Mbps_q1 = pd.read_csv(os.path.join("./models", params['model_name'], "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_5Mbps", 
                             "PX2_100_Safety_True_noise_False", "valid_data.csv"))
-df_10Mbps_q9 = pd.read_csv(os.path.join("./models", "casc_agent_1", "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_queue_9__10Mbps", 
+df_10Mbps_q9 = pd.read_csv(os.path.join("./models", params['model_name'], "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_queue_9__10Mbps", 
                             "PX2_100_Safety_True_noise_False", "valid_data.csv"))
-df_10Mbps_q19 = pd.read_csv(os.path.join("./models", "casc_agent_1", "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_queue_19__10Mbps", 
+df_10Mbps_q19 = pd.read_csv(os.path.join("./models", params['model_name'], "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_queue_19__10Mbps", 
                             "PX2_100_Safety_True_noise_False", "valid_data.csv"))
-df_10Mbps_q49 = pd.read_csv(os.path.join("./models", "casc_agent_1", "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_queue_49__10Mbps", 
+df_10Mbps_q49 = pd.read_csv(os.path.join("./models", params['model_name'], "experiments", "obs_4_route_short", "Town04_OPT_ResNet152_Shield2_"+sup_string+"_queue_49__10Mbps", 
                             "PX2_100_Safety_True_noise_False", "valid_data.csv"))
-save_data_path = "./plot_data/Hist_Shield2_"+sup_string+"_Safety_True_noise_gaussian.csv"
 
 energy_dict = {} 
 missed_windows = {} 
@@ -104,14 +104,13 @@ for median in bplot['medians']:
     print(median.get_xydata()[1])
 
 fig1.tight_layout()
-
 ax1.set_xticks(ax1.get_xticks(), labels_list, rotation=7)
 
-
-
 ax1.grid(axis='y', zorder = 0, alpha=0.3)
-# plt.savefig('./plot_data/wireless/'+str(params['mode'])+'off_belay_' +str(params['off_belay']) + '.svg', bbox_inches='tight')
-
-plt.show()
+if params['mode'] == 'windows':
+    plt.savefig('./results/Fig8_'+str(params['mode'])+'.pdf', bbox_inches='tight')
+else:
+    plt.savefig('./results/Fig9_'+str(params['mode'])+'.pdf', bbox_inches='tight')
+# plt.show()
 
 # plt.bar(norm_energy_dict.keys(), 
