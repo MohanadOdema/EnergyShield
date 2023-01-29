@@ -21,6 +21,11 @@ This README describes how to replicate the results in [EnergyShield-ICCPS2023] u
 
 ## 2. Setup
 
+### Model checkpoints and Excel files
+- To reuse our pretrained models in generating new results, download from [Google Drive](https://drive.google.com/file/d/1ryR7FuCEwSy5KiOBlVQQ5OpPMQEEZdXn/view?usp=sharing) and unzip in the main EnergyShield to have the models data under directory `./EnergyShield/models/` 
+
+Our main experimental model and results is named "casc_agent_1". We created another instance of it "casc_agent_1_new" to allow users to generate their own test runs using the same model checkpoint. The rest of the models in the directory are the ones used to construct Table 1. Each model folder (e.g., `./EnergyShield/models/casc_agent_1/`) should contain a subfolder for the checkpoint and another for its experimental data. 
+
 ## 3. Experiment 1 - Energy Efficiency and Safety Evaluation
 As per the description in 5.2, we provide the script to initiate new Carla simulation runs that compare EnergyShield to the conventional local execution mode in terms of energy efficiency and safety. 
 If users want to reuse our own generated data in the paper, they can skip this step and always set `model` argument to "casc_agent_1". Otherwise, they can run their own as follows:
@@ -39,11 +44,11 @@ sh ./scripts/exp1_generate_results.sh `model`
 ```
 The generated figures can be found in .pdf as follows:
 
-	./results/Fig5_Energy.pdf
-	./results/Fig5_Safety.pdf
-	./results/Fig6_traj_noise_False.pdf
-	./results/Fig6_traj_noise_True.pdf
-	./results/Fig7_Ergy_v_dist.pdf
+./results/Fig5_Energy.pdf
+./results/Fig5_Safety.pdf
+./results/Fig6_traj_noise_False.pdf
+./results/Fig6_traj_noise_True.pdf
+./results/Fig7_Ergy_v_dist.pdf
 
 The 'distance per 1 m' statistics used to implement Figure 7 were generated for the selected `model` under `./results/distance/`. Note also that if users are regenerating their own results, Figure 6 trajectories may not exhibit the same driving patterns as ours for it depends on the RL agent's driving decisions within the episode.
 
@@ -63,8 +68,8 @@ sh ./scripts/exp2_generate_results.sh `model`
 
 This will generate the box and whisker plots under varying network connectivity conditions:
 
-	./results/Fig8_windows.pdf
-	./results/Fig9_energy.pdf
+./results/Fig8_windows.pdf
+./results/Fig9_energy.pdf
 
 ## 5. Experiment 3 - Generality to other controllers
 

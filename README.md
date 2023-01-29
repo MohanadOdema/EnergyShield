@@ -16,7 +16,7 @@ EnergyShield provides safety interventions and formal state-based quantification
 - Installation sequence and needed packages in `install_shell_script.sh`
 
 ## Model checkpoints and Excel files
-- Download from [Google Drive](https://drive.google.com/file/d/1JYnrtAYDDPcGgPm5Q6P0DFq5KkhzEx2w/view?usp=sharing). Unzip in the main EnergyShield directory
+- Download from [Google Drive](https://drive.google.com/file/d/1ryR7FuCEwSy5KiOBlVQQ5OpPMQEEZdXn/view?usp=sharing). Unzip in the main EnergyShield directory
 - The 4 models used for evaluation are arranged in the order provided in Table 1. Each model folder contains a subfolder for the checkpoint and another for the excel files. 
 
 ## Running Carla main experiments 
