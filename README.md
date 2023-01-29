@@ -58,6 +58,6 @@ python plot_distance.py --plot_all
 `
 - Box and Whisker plots
 `
-python plot_wireless_boxplot.py -mode energy 
+python plot_wireless_boxplot.py -mode energy \\
 python plot_wireless_boxplot.py -mode windows 
 `

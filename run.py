@@ -162,17 +162,18 @@ def train(params, start_carla=True, restart=False):
     num_actions = env.action_space.shape[0]         # steer and throttle if PPO
 
     # Create model     
-    if model_name.startswith('casc_agent'):
-        print("Creating cascaded model")
-        model = PPO_CASCADE(input_shape, bbox_shape, env.action_space,
-                    learning_rate=learning_rate, lr_decay=lr_decay,
-                    epsilon=ppo_epsilon, initial_std=initial_std,
-                    value_scale=value_scale, entropy_scale=entropy_scale,
-                    model_dir=os.path.join("models", model_name), 
-                    subdirs=subdirs_path)
-    else:
-        print("Direct automated control following route")
-        model = dir_manager(model_dir=os.path.join("models", model_name), subdirs=subdirs_path)
+    print("Creating cascaded model")
+    model = PPO_CASCADE(input_shape, bbox_shape, env.action_space,
+                learning_rate=learning_rate, lr_decay=lr_decay,
+                epsilon=ppo_epsilon, initial_std=initial_std,
+                value_scale=value_scale, entropy_scale=entropy_scale,
+                model_dir=os.path.join("models", model_name), 
+                subdirs=subdirs_path)
+    
+    # Prior else condtion to run automated Path following basic code
+    # else:
+    #     print("Direct automated control following route")
+    #     model = dir_manager(model_dir=os.path.join("models", model_name), subdirs=subdirs_path)
 
     if safety_filter:
         env.safety_filter = SafetyFilter()
@@ -181,11 +182,11 @@ def train(params, start_carla=True, restart=False):
         shutil.rmtree(model.model_dir)
         for d in model.dirs:
             os.makedirs(d)
-    if model_name.startswith('agent') or model_name.startswith('casc_agent'):
-        model.init_session()
-        if not restart:
-            model.load_latest_checkpoint()
-        model.write_dict_to_summary("hyperparameters", params, 0)
+
+    model.init_session()
+    if not restart:
+        model.load_latest_checkpoint()
+    model.write_dict_to_summary("hyperparameters", params, 0)
     object_detector.init_session()
 
     # For every episode
@@ -256,12 +257,7 @@ def train(params, start_carla=True, restart=False):
                 states, input_boxes, taken_actions, values, rewards, dones = [], [], [], [], [], []
                 for _ in range(horizon):               # number of steps to simulate per training step (128)
                     # first control output predictions
-                    if model_name.startswith('agent'):
-                        action, value = model.predict(state, write_to_summary=True)
-                    elif model_name.startswith('casc_agent'):
-                        action, value = model.predict(state, masked_detections, write_to_summary=True)
-                    else:
-                        action, value = np.array([0, 0]), 0
+                    action, value = model.predict(state, masked_detections, write_to_summary=True)
 
                     image_np_with_detections = env.observation.copy()
 
@@ -364,12 +360,7 @@ def train(params, start_carla=True, restart=False):
                         route = info["route"]
                         break
                 # Calculate last value (bootstrap value)
-                if model_name.startswith('agent'):
-                    _, last_values = model.predict(state) # []
-                elif model_name.startswith('casc_agent'):
-                    _, last_values = model.predict(state, masked_detections)
-                else:
-                    last_values = 1.0            # dummy values
+                _, last_values = model.predict(state, masked_detections)
                 
                 # Compute GAE -- Generalized Advantage Estimator
                 advantages = compute_gae(rewards, values, last_values, dones, discount_factor, gae_lambda)
@@ -391,7 +382,7 @@ def train(params, start_carla=True, restart=False):
                 assert advantages.shape == (T,)
 
                 # Train for some number of epochs
-                if (not test) and ((model_name.startswith('agent')) or model_name.startswith('casc_agent')):
+                if (not test):
                     model.update_old_policy() # θ_old <- θ
                 for _ in range(num_epochs):
                     num_samples = len(states)
@@ -406,11 +397,7 @@ def train(params, start_carla=True, restart=False):
                         mb_idx = indices[begin:end]
 
                         # Optimize network
-                        if (not test) and (model_name.startswith('agent')):
-                            #print("train")
-                            model.train(states[mb_idx], taken_actions[mb_idx],
-                                    returns[mb_idx], advantages[mb_idx])
-                        elif (not test) and (model_name.startswith('casc_agent')):
+                        if (not test):
                             model.train(states[mb_idx], input_boxes[mb_idx], taken_actions[mb_idx],
                                     returns[mb_idx], advantages[mb_idx])
 
@@ -428,6 +415,8 @@ def train(params, start_carla=True, restart=False):
                 print(f"% change = {round((np.mean(exp_energy) - 113.5)/113.5, 3)} \n\n ")
 
             if not params["no_save"]:
+
+                print('Saving results')
 
                 plot_trajectories(ego_x, ego_y, completed_x, completed_y, obstacle_x, obstacle_y, model.plot_dir, episode_idx)
                 plot_energy_stats(exp_latency, exp_energy, phi_true, miss_flag, model.plot_dir, episode_idx, params)
@@ -453,12 +442,11 @@ def train(params, start_carla=True, restart=False):
                             csv_writer.writerow(data_row)
                 else:
                     final_episode_iteration += 1
-            if model_name.startswith('agent') or model_name.startswith('casc_agent'):
-                model.write_episodic_summaries()    
-            else:
-                model.inc_count()
+            model.write_episodic_summaries()    
+            # else:
+            #     model.inc_count()
 
-            if (not test) and ((model_name.startswith('agent')) or model_name.startswith('casc_agent')):
+            if (not test):
                 model.save()
 
         except KeyboardInterrupt:
@@ -513,10 +501,10 @@ if __name__ == "__main__":
     parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
     parser.add_argument("-penalize_steer_diff", action="store_true", default=False, help="Penalize RL's steering output and filter's output")
     parser.add_argument("-penalize_dist_obstacle", action="store_true", default=True, help="Add a penalty when the RL agent gets closer to an obstacle")
-    parser.add_argument("-obstacle", action="store_true", default=False, help="Add obstacles")
+    parser.add_argument("-obstacle", action="store_true", default=True, help="Add obstacles")
     parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
     parser.add_argument("--track", type=int, default=1, help="Track Number")
-    parser.add_argument("-test", action="store_true", default=False, help="test")
+    parser.add_argument("-test", action="store_true", default=True, help="test")
 
     parser.add_argument("-restart", action="store_true",
                         help="If True, delete existing model in models/model_name before starting training")
@@ -529,7 +517,7 @@ if __name__ == "__main__":
     parser.add_argument("--bottleneck_ch", type=int, help="number of bottleneck channels", choices=[3,6,9,12], default=6)
     parser.add_argument("--bottleneck_quant", type=int, help="quantization of the output", choices=[8,16,32], default=8)
     parser.add_argument("--HW", type=str, help="AV Hardware", choices=['PX2', 'TX2', 'Orin', 'Xavier', 'Nano'], default='PX2')
-    parser.add_argument("--deadline", type=int, help="dealdine in ms", default=20)                    # Single time window is 20 ms
+    parser.add_argument("--deadline", type=int, help="dealdine in ms", default=100)                    # Single time window is 20 ms
     parser.add_argument("--img_resolution", type=str, help="enter offloaded image resolution", choices=['80p', '480p', '720p', '1080p', 'Radiate', 'TeslaFSD', 'Waymo'], default='80p')
     parser.add_argument("--comm_tech", type=str, help="the wireless technology", choices=['LTE', 'WiFi', '5G'], default='WiFi')
     parser.add_argument("--rayleigh_sigma", type=int, help="Scale of the throughput's Rayleigh distribution -- default is the value from collected LTE traces", default=20)#13.62)    
@@ -539,7 +527,7 @@ if __name__ == "__main__":
     parser.add_argument("--local_early", action='store_true', default=False, help="instantly perform local execution at the first attainable window of the dealdine")
     parser.add_argument("--hold_det_img", default=True, help="hold detector image after transmission/belay initiated" )
     parser.add_argument("--hold_vae_img", default=False, help="hold VAE image after transmission/belay initiated")
-    parser.add_argument("--cont_control", default=False, help="Controller keeps updating based on state variable even if the OD is offloaded (fixed detections from last frame)")
+    parser.add_argument("--cont_control", default=True, help="Controller keeps updating based on state variable even if the OD is offloaded (fixed detections from last frame)")
 
     # Netowrk Sampling and Estimation Parameters
     parser.add_argument("--buffer_size", type=int, default=5, help="moving average window size")
@@ -556,16 +544,16 @@ if __name__ == "__main__":
     parser.add_argument("--queue_state", type=int, default=None, help='Approximation to set number of tasks in a queue')
 
     # Carla Config file
-    parser.add_argument("--carla_map", type=str, default='Town04', help="load map")
+    parser.add_argument("--carla_map", type=str, default='Town04_OPT', help="load map")
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
-    parser.add_argument("-display_off", action='store_true', help='Turn off display running experiments on the server')
+    parser.add_argument("-display_off", action='store_true', default=True, help='Turn off display running experiments on the server')
     parser.add_argument("--port", type=int, default=2000, help='set the port for communicating with the host in case of server operation')
     parser.add_argument("--viz_utils", default=True, help="ignore viz utils to avoid correcting on the server")
 
     # Additional Carla Offloading env options
     parser.add_argument("--len_route", type=str, default='short', help="The route array length -- longer routes support more obstacles but extends sim time")
-    parser.add_argument("--len_obs", type=int, default=1, help="How many objects to be spawned given len_route is satisfied")
+    parser.add_argument("--len_obs", type=int, default=4, help="How many objects to be spawned given len_route is satisfied")
     parser.add_argument("--obs_step", type=int, default=0, help="Objects distribution along the route after the first one")
     parser.add_argument("--obs_start_idx", type=int, default=40, help="spawning index of first obstacle")
     parser.add_argument("--no_save", action='store_true', help="code experiment no save to disk")

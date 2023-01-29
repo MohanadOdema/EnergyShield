@@ -23,7 +23,7 @@ def track_completion_rate(obs_list, curb_list):
 
 parser = argparse.ArgumentParser(description="compute stats for an excel file")
 
-parser.add_argument("--model_name", type=str, default='casc_agent4', help="Name of the model")
+parser.add_argument("--model_name", type=str, default='casc_agent1', help="Name of the model")
 parser.add_argument("-safety_filter", action="store_true", default=False, help="Filter Control actions")
 parser.add_argument("-gaussian", action="store_true", default=False, help="Randomize obstacles location using gaussian distribution")
 parser.add_argument("--offload_policy", type=str, help="Offloading policy", choices=['local', 'offload', 'offload_failsafe', 'adaptive', 'adaptive_failsafe', 'Shield1', 'Shield2'], default='Shield2')    
