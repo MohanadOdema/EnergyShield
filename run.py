@@ -33,7 +33,7 @@ from CarlaEnv.carla_offload_env import CarlaOffloadEnv as CarlaEnv
 # from CarlaEnv.agents.navigation import basic_agent, behavior_agent
 
 parent_directory = os.path.abspath(os.path.join(__file__,os.pardir + "/" + os.pardir))
-PATH_TO_LABELS = parent_directory + '/TensorFlow/models/research/object_detection/data/mscoco_label_map.pbtxt'
+PATH_TO_LABELS = parent_directory + '/custom/TensorFlow/models/research/object_detection/data/mscoco_label_map.pbtxt'
 
 def train(params, start_carla=True, restart=False):
     # Read parameters
