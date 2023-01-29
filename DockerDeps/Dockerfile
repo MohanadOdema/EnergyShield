@@ -118,6 +118,8 @@ RUN locale-gen en_US.UTF-8
 
 RUN echo "#!/bin/bash" > /usr/local/bin/bk
 RUN echo "(" >>  /usr/local/bin/bk
+RUN echo "export SDL_VIDEODRIVER=offscreen" >>  /usr/local/bin/bk
+RUN echo "export DISPLAY=" >>  /usr/local/bin/bk
 RUN echo 'echo "Date: `date`"' >>  /usr/local/bin/bk
 RUN echo 'echo "Command: $*"' >>  /usr/local/bin/bk
 RUN echo 'nohup "$@"' >>  /usr/local/bin/bk
