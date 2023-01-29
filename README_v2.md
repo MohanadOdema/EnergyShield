@@ -22,7 +22,6 @@ This README describes how to replicate the results in [EnergyShield-ICCPS2023] u
 ## 2. Setup
 
 ## 3. Experiment 1 - Energy Efficiency and Safety Evaluation
-<!-- Need to explain S, N, and this will run 12 experiments -->
 As per the description in 5.2, we provide the script to initiate new Carla simulation runs that compare EnergyShield to the conventional local execution mode in terms of energy efficiency and safety. 
 If users want to reuse our own generated data in the paper, they can skip this step and always set `model` argument to "casc_agent_1". Otherwise, they can run their own as follows:
 ```Bash
@@ -52,7 +51,7 @@ The 'distance per 1 m' statistics used to implement Figure 7 were generated for 
 In 5.3, Carla simulations are rerun to evaluate EnergyShield's resilience under variations of wireless network conditions (represented by the parameters of channel throughput and queuing delays). To run such variations, users can run the following script:
 ```Bash
 # Experiment 2 Carla simulations (skip if reusing our generated data)
-./scripts/run_exp2.sh `model` `num_eps`
+sh ./scripts/run_exp2.sh `model` `num_eps`
 ```
 where `model` and `num_eps` are the same arguments from experiment 1. This script will instantiate additional 5 experiments of varying wireless conditions. 
 
@@ -71,7 +70,7 @@ This will generate the box and whisker plots under varying network connectivity 
 
 In this experiment,we evaluate how EnergyShield generalizes to DRL controllers trained with different policies. The results for our 4 controllers are in Table 1, and users can call the following script to recompute performance statistics for a model as follows:
 ```Bash
-# Experiment 2 Figures' Generation
+# Experiment 3 display model statistics
 sh ./scripts/exp3_generate_results.sh `model`
 ```
-The statistics will be displayed directly for each configuration in the user's terminal. `model` can be set to one of {`casc_agent_1`, `casc_agent_2`, `casc_agent_3`, `casc_agent_4`} to genreate our exact numbers.
+The statistics will be displayed directly for each configuration in the user's terminal. `model` can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to genreate our exact numbers.
