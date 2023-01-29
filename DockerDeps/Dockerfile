@@ -146,6 +146,7 @@ WORKDIR /home/${USER_NAME}
 RUN echo "export TERM=xterm-256color" >> /home/${USER_NAME}/.bashrc
 RUN echo "export COLORTERM=truecolor" >> /home/${USER_NAME}/.bashrc
 RUN echo "export TERM_PROGRAM=iTerm2.app" >> /home/${USER_NAME}/.bashrc
+RUN echo "export SDL_VIDEODRIVER=dummy" >> /home/${USER_NAME}/.bashrc
 RUN echo "set-option -gs default-terminal \"tmux-256color\" # Optional" >> /home/${USER_NAME}/.tmux.conf
 RUN echo "set-option -gas terminal-overrides \"*:Tc\"" >> /home/${USER_NAME}/.tmux.conf
 RUN echo "set-option -gas terminal-overrides \"*:RGB\"" >> /home/${USER_NAME}/.tmux.conf
