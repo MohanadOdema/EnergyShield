@@ -1,8 +1,13 @@
 # EnergyShield (ICCPS '23, Submission 251)
 
-EnergyShield is a framework for provably-safe offloading of neural network controllers at the edge. It is described in the enclosed submission ICCPS23_251.pdf, hereafter referred to as [EnergyShield-ICCPS23].
+EnergyShield is a framework for provably-safe offloading of neural network controllers at the edge. It is described in the paper:
 
-This README describes how to replicate the results in [EnergyShield-ICCPS2023] using the code supplied in this virtual machine. This includes generating new experimental data from new Carla simulation instances and creating plots for three numerical experiments:
+>_EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency._  
+>Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al Faruque. ICCPS 2023: 14th ACM/IEEE International Conference on Cyber-Physical Systems.
+
+also enclosed as `ICCPS23_251.pdf`, and hereafter referred to as [EnergyShield-ICCPS23].
+
+This README describes how to replicate the results in [EnergyShield-ICCPS2023] using code packaged in a provided Docker image. This includes generating new experimental data from new Carla simulation instances and creating plots for three numerical experiments:
 
 	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
 	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
