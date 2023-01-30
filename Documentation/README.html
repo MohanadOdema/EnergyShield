@@ -2,7 +2,7 @@
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>EnergyShield &lpar;ICCPS &apos;23&comma; Submission 56&rpar;</title>
+        <title>EnergyShield &lpar;ICCPS &apos;23&comma; Submission 251&rpar;</title>
         <style>
 /* From extension vscode.github */
 /*---------------------------------------------------------------------------------------------
@@ -41,12 +41,12 @@
         
     </head>
     <body class="vscode-body vscode-light">
-        <h1 id="energyshield-iccps-23-submission-56">EnergyShield (ICCPS '23, Submission 56)</h1>
-<p>FastBATLLNN is a fast verifier of box-like (hyper-rectangle) output properties for Two-Level Lattice (TLL) Neural Networks. It is described in the enclosed submission HSCC_56.pdf, hereafter referred to as [EnergyShield-ICCPS23]</p>
-<p>This README describes how to replicate the results in [EnergyShield-ICCPS23] using the code supplied in this virtual machine. This includes generating raw verification data and creating plots for three numerical experiments:</p>
-<pre><code>(Experiment 1) Scalability of FastBATLLNN as a function of the input dimension of the TLL to be verified (Section 6.2)
-(Experiment 2) Scalability of FastBATLLNN as a function of TLL NN size, viz. number of local linear functions (Section 6.3)
-(Experiment 3) Comparison of FastBATLLNN with generic NN verifiers (Section 6.4)
+        <h1 id="energyshield-iccps-23-submission-251">EnergyShield (ICCPS '23, Submission 251)</h1>
+<p>EnergyShield is a framework for provably-safe offloading of neural network controllers at the edge. It is described in the enclosed submission ICCPS23_251.pdf, hereafter referred to as [EnergyShield-ICCPS23].</p>
+<p>This README describes how to replicate the results in [EnergyShield-ICCPS2023] using the code supplied in this virtual machine. This includes generating new experimental data from new Carla simulation instances and creating plots for three numerical experiments:</p>
+<pre><code>(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
+(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
+(Experiment 3) Generality to other neural network controllers (Section 5.4) 
 </code></pre>
 <h2 id="contents">Contents</h2>
 <ol start="0">
@@ -57,8 +57,8 @@
 <h2 id="0-terminology">0. Terminology</h2>
 <p>This repeatability artifact uses <a href="https://docker.com">Docker</a>. We will use the following terminology throughout:</p>
 <ul>
-<li>The <strong>HOST</strong> will refer to the system running <a href="https://docker.com">Docker</a> (e.g. your laptop).</li>
-<li>The <strong>CONTAINER</strong> will refer to the &quot;virtualized&quot; system created by <a href="https://docker.com">Docker</a> (this is where the code from the artifact is run).</li>
+<li>The <strong>HOST</strong> will refer to the system running Docker (e.g. your laptop).</li>
+<li>The <strong>CONTAINER</strong> will refer to the &quot;virtualized&quot; system created by Docker (this is where the code from the artifact is run).</li>
 </ul>
 <p>Commands meant to be executed inside the host or container will be prefixed with one of the respective comments:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
@@ -75,11 +75,11 @@
 <p><strong>SOFTWARE (HOST):</strong></p>
 <ol>
 <li>Un-virtualized Linux operating system (any distribution that meets the remaining requirements will likely work)</li>
-<li>Official Linux NVIDIA drivers <strong>(version &gt;= 515.76 is <em>required</em>)</strong></li>
-<li>A recent version of <a href="https://docker.com">Docker</a> <strong>(version &gt;= 19.03)</strong></li>
+<li>Official <a href="https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html">Linux NVIDIA drivers</a> <strong>(version &gt;= 515.76 is <em>required</em>)</strong></li>
+<li>A recent version of <a href="https://docs.docker.com/engine/">Docker Engine</a> <strong>(version &gt;= 19.03)</strong>;  also known as <code>containerd</code> or Docker Server but <strong>not</strong> <a href="https://docker.com">Docker Desktop</a></li>
 <li>A recent version of <code>git</code> on the path</li>
 <li>The <code>bash</code> shell installed in <code>/bin/bash</code></li>
-<li>A user account that can run <a href="https://docker.com">Docker</a> containers in priviledged mode (i.e. with the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code>--priviledged</code> switch</a>)</li>
+<li>A user account that can run Docker containers in priviledged mode (i.e. with the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code>--priviledged</code> switch</a>)</li>
 </ol>
 <h2 id="2-setup">2. Setup</h2>
 <h3 id="i-host-paths"><em>(i) Host Paths</em></h3>
@@ -94,7 +94,7 @@ HOST_LOCATION=/path/to/someplace/convenient
 <h3 id="ii-starting-the-docker-container"><em>(ii) Starting the Docker Container</em></h3>
 <p>To start the EnergyShield Docker container, exectute the following in a Bash shell on the host (from <code>$HOST_LOCATION</code>):</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
-git <span class="hljs-built_in">clone</span> --recursive https://github.com/jferlez/EnergyShield
+git <span class="hljs-built_in">clone</span> --recursive https://github.com/MohanadOdema/EnergyShield
 <span class="hljs-built_in">cd</span> EnergyShield
 ./dockerbuild.sh <span class="hljs-comment"># WARNING: downloads ~30GB of data, and may take &gt; 1 hour!</span>
 ./dockerrun.sh --interactive --start-carla
@@ -107,7 +107,7 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/jfer
 </code></pre>
 </blockquote>
 <h3 id="iii-container-paths"><em>(iii) Container Paths</em></h3>
-<p>The conainer's Bash shell will have a prompt that looks like:</p>
+<p>The container's Bash shell will have a prompt that looks like:</p>
 <pre><code class="language-Bash">carla@abedb3 ~$ 
 </code></pre>
 <p>where <code>abedb3</code> is a (unique) container id.</p>
@@ -116,8 +116,13 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/jfer
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 </code></pre>
 <blockquote>
-<p><strong>NOTE:</strong> All subsequent <strong>CONTAINER</strong> paths in this readme are assumed to be relative to <code>/home/carla/EnergyShield</code>.</p>
+<p><strong>NOTE:</strong> All subsequent <strong>CONTAINER</strong> paths in this readme are assumed to be relative to <code>/home/carla/EnergyShield</code>, unless otherwise noted.</p>
 </blockquote>
+<h3 id="iv-results-paths"><em>(iv) Results Paths</em></h3>
+<p>The output produced by subsequent experiment scripts will accessible from the <strong>HOST</strong> path:</p>
+<pre><code class="language-Bash"><span class="hljs-variable">$HOST_LOCATION</span>/EnergyShield/container_results
+</code></pre>
+<p>This path is <a href="https://docs.docker.com/storage/bind-mounts/">bind-mounted</a> to <code>/home/carla/results</code> in the <strong>CONTAINER</strong>: i.e. the contents of one will mirror the contents of the other.</p>
 
         <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
         

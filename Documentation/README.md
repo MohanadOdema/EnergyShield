@@ -19,8 +19,8 @@ This README describes how to replicate the results in [EnergyShield-ICCPS2023] u
 
 This repeatability artifact uses [Docker](https://docker.com). We will use the following terminology throughout:
 
-* The **HOST** will refer to the system running [Docker](https://docker.com) (e.g. your laptop).
-* The **CONTAINER** will refer to the "virtualized" system created by [Docker](https://docker.com) (this is where the code from the artifact is run).
+* The **HOST** will refer to the system running Docker (e.g. your laptop).
+* The **CONTAINER** will refer to the "virtualized" system created by Docker (this is where the code from the artifact is run).
 
 Commands meant to be executed inside the host or container will be prefixed with one of the respective comments:
 
@@ -42,10 +42,10 @@ Commands meant to be executed inside the host or container will be prefixed with
 
 1. Un-virtualized Linux operating system (any distribution that meets the remaining requirements will likely work)
 2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is _required_)**
-3. A recent version of [Docker](https://docker.com) **(version >= 19.03)**
+3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**;  also known as `containerd` or Docker Server but **not** [Docker Desktop](https://docker.com)
 4. A recent version of `git` on the path
 5. The `bash` shell installed in `/bin/bash`
-6. A user account that can run [Docker](https://docker.com) containers in priviledged mode (i.e. with the [`--priviledged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
+6. A user account that can run Docker containers in priviledged mode (i.e. with the [`--priviledged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
 
 
 ## 2. Setup
@@ -83,7 +83,7 @@ This should place you at a Bash shell inside a container with EnergyShield insta
 
 ### _(iii) Container Paths_
 
-The conainer's Bash shell will have a prompt that looks like:
+The container's Bash shell will have a prompt that looks like:
 
 ```Bash
 carla@abedb3 ~$ 
