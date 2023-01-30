@@ -97,4 +97,4 @@ print(route_x)
 print(route_y)
 
 plt.tight_layout()
-plt.savefig('./results/Fig6_traj_noise_' +str(params['gaussian']) + '.pdf', bbox_inches='tight')
+plt.savefig('../results/Fig6_traj_noise_' +str(params['gaussian']) + '.pdf', bbox_inches='tight')

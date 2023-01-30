@@ -67,6 +67,8 @@ offload_policy = ['local_cont', 'Shield2_early', 'Shield2_belay']
 safety_filter = ['False', 'True']
 gaussian_noise = ['False', 'True']
 
+policies, safeties, noises, CDs, TCRs, Energies = [],[],[],[],[],[]
+
 print("-"*80)
 for policy in offload_policy: 
     for safety in safety_filter:
@@ -84,31 +86,22 @@ for policy in offload_policy:
                 results_dict['TCR'] = track_completion_rate(df['obstacle_hit'][params['start_idx']:], df['curb_hit'][params['start_idx']:])
             elif params['end_idx'] is not None:
                 results_dict['TCR'] = track_completion_rate(df['obstacle_hit'][:params['end_idx']], df['curb_hit'][:params['end_idx']])
-            # results_dict['avg_reward'] = round(np.mean(df['reward']),2)
-            # results_dict['max_reward'] = round(max(df['reward']),2)
-            # # results_dict['normalized_avg_reward'] = round((np.mean(df['reward']))/len(df['reward']), 2)
-            # results_dict['cond_avg_reward'] = compute_conditional_avg(df['reward'], df['obstacle_hit'], df['curb_hit'])
-            # results_dict['distance_traveled'] = round(np.mean(df['dist_traveled']), 2)
             results_dict['avg_CD'] = round(np.mean(df['avg_center_deviance']),2)
-            # results_dict['cond_avg_CD'] = compute_conditional_avg(df['avg_center_deviance'], df['obstacle_hit'], df['curb_hit'])
             results_dict['avg_energy'] = round(np.mean(df['avg_energy']), 2)
-            # results_dict['missed_windows'] = round(np.mean(df['missed_windows']),2)
-            # results_dict['cond_missed_windows'] = round(compute_conditional_avg(df['missed_windows'], df['obstacle_hit'], df['curb_hit']),2)
-            # results_dict['missed_deadlines'] = round(np.mean(df['missed_deadlines']), 2)
-            # results_dict['cond_missed_deadlines'] = round(compute_conditional_avg(df['missed_deadlines'], df['obstacle_hit'], df['curb_hit']), 2)
-            # results_dict['missed_controls'] = round(np.mean(df['missed_controls']),2)
-            # results_dict['cond_missed_controls'] = round(compute_conditional_avg(df['missed_controls'], df['obstacle_hit'], df['curb_hit']),2)
-            # results_dict['missed_offloads'] = round(np.mean(df['missed_offloads']),2)
-            # results_dict['cond_missed_offloads'] = round(compute_conditional_avg(df['missed_offloads'], df['obstacle_hit'], df['curb_hit']),2)
-            # results_dict['max_succ_interrupts'] = max(df['max_succ_interrupts'])
+
+            policies.append(policy)
+            safeties.append(safety)
+            noises.append(noise)
+            CDs.append(results_dict['avg_CD'])
+            TCRs.append(results_dict['TCR'])
+            Energies.append(results_dict['avg_energy'])
+
             print(f"Stats for Model: {params['model_name']}, Policy: {policy}, S: {safety}, N: {noise} ")
 
             for key,value in results_dict.items():
                 print(key, value)
             print("-"*80)
 
-
-
-
-
-
+df = pd.DataFrame({'Policy': pd.Series(policies), 'S': pd.Series(safeties), 'N': pd.Series(noises),
+                    'CD': pd.Series(CDs), 'TCR': pd.Series(TCRs), 'Energy': pd.Series(Energies) })
+df.to_csv('../results/stats_for_'+params['model_name']+'.csv')

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-model=${1:-casc_agent_1_new}
-num_eps=${2:-3}
+num_eps=${1:-3}
+model=${2:-casc_agent_1_new}
 
 # vary phi 5, 10 , 20 at q = 1
 # vary q at 9 , 19 , 49 for phi =10

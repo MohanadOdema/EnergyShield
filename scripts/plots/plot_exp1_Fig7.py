@@ -63,7 +63,7 @@ instances_plt_dict2 = {}
 
 for safety in safety_filter:
     for noise in gaussian_noise:
-        load_data_path = "./results/distance/Hist_Shield2_"+sup_string+"_Safety_"+str(safety)+"_noise_"+str(noise)+".csv"
+        load_data_path = "../results/distance/Hist_Shield2_"+sup_string+"_Safety_"+str(safety)+"_noise_"+str(noise)+".csv"
         df = pd.read_csv(load_data_path)
         keys_plt_dict[safety+'/'+noise] = df['keys']
         energy_plt_dict[safety+'/'+noise] = df['avg_energy']
@@ -72,7 +72,7 @@ for safety in safety_filter:
 
 for safety in safety_filter:
     for noise in gaussian_noise:
-        load_data_path = "./results/distance/Hist_Shield2_"+sup_string2+"_Safety_"+str(safety)+"_noise_"+str(noise)+".csv"
+        load_data_path = "../results/distance/Hist_Shield2_"+sup_string2+"_Safety_"+str(safety)+"_noise_"+str(noise)+".csv"
         df = pd.read_csv(load_data_path)
         keys_plt_dict2[safety+'/'+noise] = df['keys']
         energy_plt_dict2[safety+'/'+noise] = df['avg_energy']
@@ -138,5 +138,5 @@ else:
 
 fig.tight_layout()
 
-plt.savefig('./results/Fig7_Ergy_v_dist.pdf', bbox_inches='tight')
+plt.savefig('../results/Fig7_Ergy_v_dist.pdf', bbox_inches='tight')
 

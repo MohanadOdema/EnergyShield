@@ -53,8 +53,8 @@ offload_policy = ['Shield2_early', 'Shield2_belay']
 safety_filter = ['False', 'True']
 gaussian_noise = ['False', 'True']
 
-if not os.path.exists('./results/distance/'):
-    os.makedirs('./results/distance/')
+if not os.path.exists('../results/distance/'):
+    os.makedirs('../results/distance/')
 
 for policy in offload_policy: 
     for safety in safety_filter:
@@ -118,7 +118,7 @@ for policy in offload_policy:
                 avg_energy_list.append(round(np.mean(value) / 113.48,2))
 
             df_save = pd.DataFrame({'keys': pd.Series(keys_list), 'instances':pd.Series(instances_list), 'avg_energy':pd.Series(avg_energy_list)})
-            df_save.to_csv("./results/distance/Hist_"+policy+"_Safety_"+safety+"_noise_"+noise+".csv")
+            df_save.to_csv("../results/distance/Hist_"+policy+"_Safety_"+safety+"_noise_"+noise+".csv")
 
 
             plt.step(keys_list, avg_energy_list, where='post')
