@@ -22,8 +22,8 @@ def track_completion_rate(obs_list, curb_list):
 
 # This is only for the local execution mode
 
-if not os.path.exists('./results'):
-   os.makedirs('./results')
+if not os.path.exists('../results'):
+   os.makedirs('../results')
 
 offloading_modes = ['local_cont', 'Shield2_early', 'Shield2_belay'] 
 Safety_filter = ['False','True']
@@ -126,7 +126,7 @@ ax.set_ylim([45, 125])
 ax.legend(["Local", "Eager", "Uniform"], bbox_to_anchor=(0.5, 1.4), 
            loc='upper center', ncol=3, borderaxespad=5, fontsize=13, borderpad=0.5, frameon=False)
 fig.tight_layout()
-plt.savefig('./results/Fig5_Energy.pdf', bbox_inches='tight')
+plt.savefig('../results/Fig5_Energy.pdf', bbox_inches='tight')
 
 ### Safety Plots
 
@@ -184,4 +184,4 @@ ax2.set_ylabel("Reward (lineplot)", fontsize=14)
 plt.legend(["N=0", "N=1"], bbox_to_anchor=(-0.33, 1.4), 
            loc='upper left', ncol=1, borderaxespad=5, fontsize=13, borderpad=0.5, frameon=False)
 fig.tight_layout()
-plt.savefig('./results/Fig5_Safety.pdf', bbox_inches='tight')
+plt.savefig('../results/Fig5_Safety.pdf', bbox_inches='tight')

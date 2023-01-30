@@ -108,9 +108,9 @@ ax1.set_xticks(ax1.get_xticks(), labels_list, rotation=7)
 
 ax1.grid(axis='y', zorder = 0, alpha=0.3)
 if params['mode'] == 'windows':
-    plt.savefig('./results/Fig8_'+str(params['mode'])+'.pdf', bbox_inches='tight')
+    plt.savefig('../results/Fig8_'+str(params['mode'])+'.pdf', bbox_inches='tight')
 else:
-    plt.savefig('./results/Fig9_'+str(params['mode'])+'.pdf', bbox_inches='tight')
+    plt.savefig('../results/Fig9_'+str(params['mode'])+'.pdf', bbox_inches='tight')
 # plt.show()
 
 # plt.bar(norm_energy_dict.keys(), 

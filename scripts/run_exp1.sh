@@ -1,7 +1,7 @@
 #!/bin/bash
 
-model=${1:-casc_agent_1_new}
-num_eps=${2:-3}
+num_eps=${1:-3}
+model=${2:-casc_agent_1_new}
 
 echo "Carla Simulation Run 1/12 - Local/N=0/S=0"
 python run.py --model_name $model --offload_policy local --num_episodes $num_eps
