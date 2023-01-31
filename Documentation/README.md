@@ -40,12 +40,12 @@ Commands meant to be executed inside the host or container will be prefixed with
 
 1. An x86-64 CPU
 2. 32GB of RAM
-3. An NVIDIA GPU with 8GB of VRAM **(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)**
+3. An NVIDIA GPU with 8GB of VRAM **(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)**; headless GPUs will work (e.g. servers and Amazon EC2/Microsoft Azure instances)
 4. At least 100GB of free disk space
 
 **SOFTWARE (HOST):**
 
-1. Un-virtualized Linux operating system (any distribution that meets the remaining requirements will likely work)
+1. Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will likewise work)
 2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is \*\*_REQUIRED_\*\*)**
 3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**;  also known as `containerd` or Docker Server but **not** [Docker Desktop](https://docker.com)
 4. A recent version of `git` on the path
