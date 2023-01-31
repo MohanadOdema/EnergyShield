@@ -80,12 +80,15 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <p><strong>SOFTWARE (HOST):</strong></p>
 <ol>
 <li>Un-virtualized Linux operating system (any distribution that meets the remaining requirements will likely work)</li>
-<li>Official <a href="https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html">Linux NVIDIA drivers</a> <strong>(version &gt;= 515.76 is <em>required</em>)</strong></li>
+<li>Official <a href="https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html">Linux NVIDIA drivers</a> <strong>(version &gt;= 515.76 is **<em>REQUIRED</em>**)</strong></li>
 <li>A recent version of <a href="https://docs.docker.com/engine/">Docker Engine</a> <strong>(version &gt;= 19.03)</strong>;  also known as <code>containerd</code> or Docker Server but <strong>not</strong> <a href="https://docker.com">Docker Desktop</a></li>
 <li>A recent version of <code>git</code> on the path</li>
 <li>The <code>bash</code> shell installed in <code>/bin/bash</code></li>
 <li>A user account that can run Docker containers in priviledged mode (i.e. with the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code>--priviledged</code> switch</a>)</li>
 </ol>
+<blockquote>
+<p><strong>WARNING:</strong> The NVIDIA driver version &gt;=515.76 is a <strong>STRICT REQUIREMENT</strong>. This repeatability artifact <strong>WILL NOT WORK</strong> unless the host has official NVIDIA drivers version 515.76 or higher installed.</p>
+</blockquote>
 <h2 id="2-setup">2. Setup</h2>
 <h3 id="i-host-paths"><em>(i) Host Paths</em></h3>
 <p>Choose an install location on the host:</p>
@@ -113,9 +116,9 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 </blockquote>
 <h3 id="iii-container-paths"><em>(iii) Container Paths</em></h3>
 <p>The container's Bash shell will have a prompt that looks like:</p>
-<pre><code class="language-Bash">carla@abedb3 ~$ 
+<pre><code class="language-Bash">carla@ece2ade62bc5:~$ 
 </code></pre>
-<p>where <code>abedb3</code> is a (unique) container id.</p>
+<p>where <code>ece2ade62bc5</code> is a (unique) container id.</p>
 <p>Change to the EnergyShield directory inside the container:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
