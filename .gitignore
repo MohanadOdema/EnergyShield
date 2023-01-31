@@ -133,3 +133,4 @@ models/
 DockerDeps/models
 DockerDeps/TensorFlow
 paper_results/raw_data
+container_results/
