@@ -1,4 +1,4 @@
-# EnergyShield: 
+# EnergyShield
 
 This is the repository for the EneryShield framework: 
 
