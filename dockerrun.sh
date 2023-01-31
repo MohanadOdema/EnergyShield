@@ -158,6 +158,12 @@ then
     AZUREBIND="$AZUREBIND -v /mnt:/media/azuretmp"
 fi
 
+# Volume mount raw data directories
+if [ ! -d "$SCRIPT_DIR/paper_results" ]; then
+    mkdir -p "$SCRIPT_DIR/paper_results/raw_data"
+fi
+RESULTSBIND="--mount type=volume,source=paper_raw_results,dst=/home/carla/EnergyShield/models,readonly,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device='$SCRIPT_DIR/paper_results/raw_data'"
+
 if [ "$SWAP" = "on"  ] && [ -e /dev/sdb1 ]
 then
     echo "Swap space requested, and temporary device found... Activating swap..."
@@ -172,7 +178,7 @@ then
 fi
 
 if [ "$EXISTING_CONTAINER" = "" ]; then
-    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen -e DISPLAY= $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS "$MPIARGS"
+    docker run --privileged $GPUS --shm-size=${SHMSIZE}gb -e SDL_VIDEODRIVER=offscreen -e DISPLAY= $INTERACTIVE $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} $RESULTSBIND $AZUREBIND -v "$(pwd)"/container_results:/home/${user}/results energyshield:${localuser} $user $INTERACTIVE $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS "$MPIARGS"
 else
     echo "Restarting container $EXISTING_CONTAINER (command line options except \"--server\" ignored)..."
     docker start $ATTACH $EXISTING_CONTAINER
