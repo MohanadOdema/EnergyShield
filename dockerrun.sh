@@ -159,10 +159,18 @@ then
 fi
 
 # Volume mount raw data directories
-if [ ! -d "$SCRIPT_DIR/paper_results" ]; then
+if [ ! -d "$SCRIPT_DIR/paper_results/raw_data/casc_agent_1" ]; then
     mkdir -p "$SCRIPT_DIR/paper_results/raw_data"
+    RESULTSBIND=""
+    DUMMYCONTAINER=`docker run --rm -d $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} --mount type=volume,dst=/home/carla/EnergyShield/models,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device="${SCRIPT_DIR}/paper_results/raw_data" energyshield:${localuser} $user -d $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS ""`
+    DCONTAINERS=`docker container ls -a | grep energyshield:$localuser | sed -e "s/[ ].*//"`
+    for CONT in $DCONTAINERS; do
+      if [ ${DUMMYCONTAINER:0:12} = $CONT ]; then
+        docker container stop $CONT
+        echo "Dummy container: $CONT"
+      fi
+    done
 fi
-RESULTSBIND="--mount type=volume,source=paper_raw_results,dst=/home/carla/EnergyShield/models,readonly,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device='$SCRIPT_DIR/paper_results/raw_data'"
 
 if [ "$SWAP" = "on"  ] && [ -e /dev/sdb1 ]
 then
