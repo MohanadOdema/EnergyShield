@@ -1,17 +1,10 @@
-# EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency
+# EnergyShield
+
 This is the repository for the EneryShield framework: 
-<!-- ***"Supervised Compression for Resource-Constrained Edge Computing Systems"***. -->
 
 ## Description
-EnergyShield provides safety interventions and formal state-based quantification of the tolerable edge response times before vehicle safety is compromised.
-
-<!-- ## Citation
-[[Paper](https://openaccess.thecvf.com/content/WACV2022/html/Matsubara_Supervised_Compression_for_Resource-Constrained_Edge_Computing_Systems_WACV_2022_paper.html)] [[Preprint](https://arxiv.org/abs/2108.11898)]
-```bibtex
-@inproceedings{
-}
-``` -->
-
+EnergyShield provides safety interventions and formal state-based quantification of the tolerable edge response times 
+<!-- 
 ## Requirements
 - Installation sequence and needed packages in `install_shell_script.sh`
 
@@ -60,4 +53,4 @@ python plot_distance.py --plot_all
 `
 python plot_wireless_boxplot.py -mode energy \\
 python plot_wireless_boxplot.py -mode windows 
-`
+` -->

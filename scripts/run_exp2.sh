@@ -26,3 +26,5 @@ echo "Additional Wireless Variation Run 5/5 - phi=10/q=1"
 python run.py --model_name $model --offload_policy Shield2 --num_episodes $num_eps --off_belay --carla_map Town04_OPT -safety_filter --phi_scale 10
 
 echo "phi=20/q=1 case was already generated as part of experiment 1"
+
+./scripts/exp2_generate_results.sh

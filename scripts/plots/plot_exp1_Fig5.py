@@ -22,8 +22,8 @@ def track_completion_rate(obs_list, curb_list):
 
 # This is only for the local execution mode
 
-if not os.path.exists('../results'):
-   os.makedirs('../results')
+if not os.path.exists('../results/raw_data'):
+   os.makedirs('../results/raw_data')
 
 offloading_modes = ['local_cont', 'Shield2_early', 'Shield2_belay'] 
 Safety_filter = ['False','True']
