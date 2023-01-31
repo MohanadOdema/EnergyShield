@@ -160,6 +160,7 @@ fi
 
 # Volume mount raw data directories
 if [ ! -d "$SCRIPT_DIR/paper_results/raw_data/casc_agent_1" ]; then
+    echo "Raw paper data not found in paper_results/raw_data. Extracting using a dummy container..."
     mkdir -p "$SCRIPT_DIR/paper_results/raw_data"
     RESULTSBIND=""
     DUMMYCONTAINER=`docker run --rm -d $HOSTNETWORK $PORT $HTTPPORT --label server=${SERVER} --mount type=volume,dst=/home/carla/EnergyShield/models,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device="${SCRIPT_DIR}/paper_results/raw_data" energyshield:${localuser} $user -d $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS ""`
@@ -167,7 +168,7 @@ if [ ! -d "$SCRIPT_DIR/paper_results/raw_data/casc_agent_1" ]; then
     for CONT in $DCONTAINERS; do
       if [ ${DUMMYCONTAINER:0:12} = $CONT ]; then
         docker container stop $CONT
-        echo "Dummy container: $CONT"
+        echo "Raw data extraction complete. Removing raw_data extraction container: $CONT"
       fi
     done
 fi
