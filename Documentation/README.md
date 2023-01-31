@@ -52,7 +52,7 @@ Commands meant to be executed inside the host or container will be prefixed with
 5. The `bash` shell installed in `/bin/bash`
 6. A user account that can run Docker containers in priviledged mode (i.e. with the [`--priviledged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
 
-> **WARNING:** The NVIDIA driver version >=515.76 is a **STRICT REQUIREMENT**. This repeatability artifact **WILL NOT WORK** unless the host has official NVIDIA drivers version 515.76 or higher installed.
+> **WARNING:** NVIDIA driver version >=515.76 is a **STRICT REQUIREMENT**. This repeatability artifact **WILL NOT WORK** unless the host has official NVIDIA drivers version 515.76 or higher installed.
 
 ## 2. Setup
 
@@ -94,7 +94,7 @@ The container's Bash shell will have a prompt that looks like:
 ```Bash
 carla@ece2ade62bc5:~$ 
 ```
-where `ece2ade62bc5` is a (unique) container id.
+where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
 
 Change to the EnergyShield directory inside the container:
 ```Bash
@@ -111,4 +111,6 @@ The output produced by subsequent experiment scripts will accessible from the **
 $HOST_LOCATION/EnergyShield/container_results
 ```
 
-This path is [bind-mounted](https://docs.docker.com/storage/bind-mounts/) to `/home/carla/results` in the **CONTAINER**: i.e. the contents of one will mirror the contents of the other.
+You may access this directory and its contents from the **host** using whichever file manager/terminal is convenient (i.e. you can "double-click" on this folder from the **host** file manager). 
+
+(This path is [bind-mounted](https://docs.docker.com/storage/bind-mounts/) to `/home/carla/results` in the **CONTAINER**: i.e. the contents of one will mirror the contents of the other.)
