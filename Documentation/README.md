@@ -91,9 +91,9 @@ This should place you at a Bash shell inside a container with EnergyShield insta
 The container's Bash shell will have a prompt that looks like:
 
 ```Bash
-carla@abedb3 ~$ 
+carla@ece2ade62bc5:~$ 
 ```
-where `abedb3` is a (unique) container id.
+where `ece2ade62bc5` is a (unique) container id.
 
 Change to the EnergyShield directory inside the container:
 ```Bash
