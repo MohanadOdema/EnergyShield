@@ -45,7 +45,7 @@ Commands meant to be executed inside the host or container will be prefixed with
 
 **SOFTWARE (HOST):**
 
-1. Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will likewise work)
+1. Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will work)
 2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is \*\*_REQUIRED_\*\*)**
 3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**;  also known as `containerd` or Docker Server but **not** [Docker Desktop](https://docker.com)
 4. A recent version of `git` on the path
