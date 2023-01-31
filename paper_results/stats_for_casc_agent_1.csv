@@ -1,0 +1,13 @@
+,Policy,S,N,CD,TCR,Energy
+0,local_cont,False,False,0.92,65.71,113.48
+1,local_cont,False,True,0.76,22.86,113.48
+2,local_cont,True,False,2.87,100.0,113.48
+3,local_cont,True,True,2.91,100.0,113.48
+4,Shield2_early,False,False,0.83,68.57,90.83
+5,Shield2_early,False,True,0.8,34.29,89.95
+6,Shield2_early,True,False,2.82,100.0,85.78
+7,Shield2_early,True,True,2.84,100.0,85.85
+8,Shield2_belay,False,False,0.9,74.29,67.65
+9,Shield2_belay,False,True,0.69,22.86,60.64
+10,Shield2_belay,True,False,2.88,100.0,51.46
+11,Shield2_belay,True,True,2.76,100.0,53.06

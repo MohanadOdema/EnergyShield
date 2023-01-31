@@ -38,3 +38,5 @@ python run.py --model_name $model --offload_policy Shield2 --off_belay --num_epi
 
 echo "Carla Simulation Run 12/12 - Uniform/N=1/S=1"
 python run.py --model_name $model --offload_policy Shield2 --off_belay --num_episodes $num_eps   -gaussian -safety_filter
+
+./scripts/exp1_generate_results.sh
