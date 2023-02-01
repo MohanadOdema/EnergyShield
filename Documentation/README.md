@@ -45,13 +45,13 @@ Commands meant to be executed inside the host or container will be prefixed with
 1. An x86-64 CPU
 2. 32GB of RAM
 3. An NVIDIA GPU with 8GB of VRAM **(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)**; headless GPUs will work (e.g. servers and Amazon EC2/Microsoft Azure instances)
-4. At least 100GB of free disk space
+4. At least 100GB of free disk space on the filesystem where Docker stores images (`/var/lib/docker` [by default](https://docs.docker.com/config/daemon/#daemon-data-directory))
 
 **SOFTWARE (HOST):**
 
 1. Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will work)
 2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is \*\*_REQUIRED_\*\*)**
-3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**;  also known as `containerd` or Docker Server but **not** [Docker Desktop](https://docker.com)
+3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**; also known as Docker Server but **not** [Docker Desktop](https://docker.com)
 4. A recent version of `git` on the path
 5. The `bash` shell installed in `/bin/bash`
 6. A user account that can run Docker containers in priviledged mode (i.e. with the [`--priviledged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))

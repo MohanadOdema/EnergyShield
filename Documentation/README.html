@@ -79,13 +79,13 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <li>An x86-64 CPU</li>
 <li>32GB of RAM</li>
 <li>An NVIDIA GPU with 8GB of VRAM <strong>(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)</strong>; headless GPUs will work (e.g. servers and Amazon EC2/Microsoft Azure instances)</li>
-<li>At least 100GB of free disk space</li>
+<li>At least 100GB of free disk space on the filesystem where Docker stores images (<code>/var/lib/docker</code> <a href="https://docs.docker.com/config/daemon/#daemon-data-directory">by default</a>)</li>
 </ol>
 <p><strong>SOFTWARE (HOST):</strong></p>
 <ol>
 <li>Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will work)</li>
 <li>Official <a href="https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html">Linux NVIDIA drivers</a> <strong>(version &gt;= 515.76 is **<em>REQUIRED</em>**)</strong></li>
-<li>A recent version of <a href="https://docs.docker.com/engine/">Docker Engine</a> <strong>(version &gt;= 19.03)</strong>;  also known as <code>containerd</code> or Docker Server but <strong>not</strong> <a href="https://docker.com">Docker Desktop</a></li>
+<li>A recent version of <a href="https://docs.docker.com/engine/">Docker Engine</a> <strong>(version &gt;= 19.03)</strong>; also known as Docker Server but <strong>not</strong> <a href="https://docker.com">Docker Desktop</a></li>
 <li>A recent version of <code>git</code> on the path</li>
 <li>The <code>bash</code> shell installed in <code>/bin/bash</code></li>
 <li>A user account that can run Docker containers in priviledged mode (i.e. with the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code>--priviledged</code> switch</a>)</li>
