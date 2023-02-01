@@ -164,6 +164,7 @@ if [ ! -d "$SCRIPT_DIR/paper_results/raw_data/casc_agent_1" ]; then
     mkdir -p "$SCRIPT_DIR/paper_results/raw_data"
     RESULTSBIND=""
     DUMMYCONTAINER=`docker run --rm -d --mount type=volume,dst=/home/carla/EnergyShield/models,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device="${SCRIPT_DIR}/paper_results/raw_data" energyshield:${localuser} $user -d $SERVER $CORES $PORTNUM $CARLAPORT $MPIHOSTS ""`
+    rm -rf "$SCRIPT_DIR/paper_results/raw_data/casc_agent_1_new"
     DCONTAINERS=`docker container ls -a | grep energyshield:$localuser | sed -e "s/[ ].*//"`
     for CONT in $DCONTAINERS; do
       if [ ${DUMMYCONTAINER:0:12} = $CONT ]; then
