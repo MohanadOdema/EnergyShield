@@ -70,8 +70,8 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <li>The <strong>CONTAINER</strong> will refer to the &quot;virtualized&quot; system created by Docker (this is where the code from the artifact is run).</li>
 </ul>
 <p>Commands meant to be executed inside the host or container will be prefixed with one of the respective comments:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
-<span class="hljs-comment"># CONTAINER COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
+<span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 </code></pre>
 <h2 id="1-system-requirements">1. System Requirements</h2>
 <p><strong>HARDWARE (HOST):</strong></p>
@@ -96,7 +96,7 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <h2 id="2-setup">2. Setup</h2>
 <h3 id="i-host-paths"><em>(i) Host Paths</em></h3>
 <p>Choose an install location on the host:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 HOST_LOCATION=/path/to/some/place/convenient
 <span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$HOST_LOCATION</span>&quot;</span>
 </code></pre>
@@ -104,8 +104,8 @@ HOST_LOCATION=/path/to/some/place/convenient
 <p><strong>NOTE:</strong> All subsequent <strong>HOST</strong> paths in this readme are assumed to be relative to <code>$HOST_LOCATION</code>.</p>
 </blockquote>
 <h3 id="ii-starting-the-docker-container"><em>(ii) Starting the Docker Container</em></h3>
-<p>To start the EnergyShield Docker container, exectute the following in a Bash shell on the host (from <code>$HOST_LOCATION</code>):</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
+<p>To start the EnergyShield Docker container, execute the following in a Bash shell on the host (from <code>$HOST_LOCATION</code>):</p>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 git <span class="hljs-built_in">clone</span> --recursive https://github.com/MohanadOdema/EnergyShield
 <span class="hljs-built_in">cd</span> EnergyShield
 ./dockerbuild.sh <span class="hljs-comment"># WARNING: downloads ~30GB of data, and may take &gt; 1 hour even after download!</span>
@@ -117,14 +117,14 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 <p>where <code>ece2ade62bc5</code> is a unique container id (i.e. yours will be different).</p>
 <blockquote>
 <p><strong>WARNING:</strong> if you exit the container's Bash shell, then the <strong>container and all experiments will stop</strong>. You may restart the container with the <strong>host</strong> command:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
 <p><strong>NOTE:</strong> There is no need to rerun <code>dockerbuild.sh</code> when restarting the container in this fashion.</p>
 </blockquote>
 <h3 id="iii-testing-the-container"><em>(iii) Testing the Container</em></h3>
 <p>From the <strong>container</strong>'s Bash shell execute:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 ps | grep Carla
 </code></pre>
 <p>You should see output listing two processes related to Carla:</p>
@@ -134,11 +134,11 @@ ps | grep Carla
 <blockquote>
 <p><strong>WARNING:</strong> if the above command produces no output, then Carla is not running, and this repeatability artifact <strong>WILL NOT WORK</strong>.</p>
 <p><strong>FIX:</strong> Double check that you have installed the correct NVIDIA drivers on the host (see Section 1). Then restart the container using the following sequence of commands:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-comment"># Exit from the container if it&#x27;s still running:</span>
 <span class="hljs-built_in">exit</span>
 </code></pre>
-<pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --remove <span class="hljs-comment"># Remove any existsing container</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
@@ -146,15 +146,15 @@ ps | grep Carla
 <h2 id="3-experiment-1---energy-efficiency-and-safety-evaluation">3. Experiment 1 - Energy Efficiency and Safety Evaluation</h2>
 <p>As per the description in 5.2, we provide the script to initiate new Carla simulation runs that compare the performance of EnergyShield (with both its eager and uniform modes) to the conventional local execution mode with regards to energy efficiency and safety.</p>
 <p>Users can generate their own test results using our pretrained model using the following script:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 <span class="hljs-comment"># Run Experiment 1 Carla simulation</span>
 ./scripts/run_exp1.sh NUM_EPS
 </code></pre>
 <!-- `model` is the name of the pretrained model directory(default: "casc_agent_1_new"). Users do not need to alter this argument for it indicates new simulation experiments using our pretrained RL model. -->
-<p><code>NUM_EPS</code> is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although <code>NUM_EPS</code> in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with <code>NUM_EPS</code> set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDA GPU 2070 RTX super.</p>
+<p><code>NUM_EPS</code> is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although <code>NUM_EPS</code> in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with <code>NUM_EPS</code> set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.</p>
 <p>Once the simulations terminate, raw data generated by carla simulations are copied to <code>../results/raw_data/</code>. The raw data provides information and statistics on the agent's performance based on its driving and offloading decisions. For convenience, we provide a description of the file hierarchy and what each data field represents in this readme's appendix.</p>
-<p>Afterwards, fgures 5, 6, and 7 can be generated in .pdf formt based on the raw data in the below paths. We remark the following:</p>
+<p>Afterwards, figures 5, 6, and 7 can be generated in .pdf format based on the raw data in the below paths. We remark the following:</p>
 <ul>
 <li>Figure 6 trajectories are generated based on 3 random episodes from the user's generated files. The figure may not possess the same driving patterns as ours for it depends on the RL agent's driving decisions (For instance, in an extreme corner cases, vehicle's trajectory can be a point indicating the RL agent remained stationary)</li>
 <li>Figure 7 (Energy vs. distance) is generated based on statistical representation of raw data in <code>../results/distance/*.csv</code> - also described in the appendix.</li>
@@ -168,7 +168,7 @@ ps | grep Carla
 </code></pre>
 <h2 id="4-experiment-2---performance-under-wireless-channel-variation">4. Experiment 2 - Performance under wireless channel variation</h2>
 <p>In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 <span class="hljs-comment"># Run Experiment 2 Carla simulations:</span>
 ./scripts/run_exp2.sh NUM_EPS
@@ -183,13 +183,13 @@ sh ./scripts/exp2_generate_results.sh
 </code></pre>
 <h2 id="5-experiment-3---performance-statistics">5. Experiment 3 - Performance Statistics</h2>
 <p>This last script generates a <code>.csv</code> file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows:</p>
-<pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 <span class="hljs-comment"># Run Experiment 3 generate model statistics</span>
 ./scripts/exp3_generate_results.sh
 </code></pre>
 <p>The results will be displayed in the terminal and saved in <code>.csv</code> format under the path <code>$HOST_LOCATION/container_results/stats_for_casc_agent_1_new.csv</code>.</p>
-<!-- can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to genreate our exact numbers. -->
+<!-- can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to generate our exact numbers. -->
 <h2 id="6-appendix">6. Appendix</h2>
 <p>Raw Data</p>
 <p>Under <code>$HOST_LOCATION/container_results/raw_data/</code>, every directory describes the evaluation results for a set of episodes. The name suffix of each directory describes the experimental configuration setting these evaluations belong to. For instance:</p>
@@ -197,13 +197,13 @@ sh ./scripts/exp2_generate_results.sh
 <li>Directory <code>Town04_OPT_ResNet152_Shield2_early</code>: experiment1 evaluations for EnergyShield early mode at default wireless settings</li>
 <li>Directory <code>Town04_OPT_ResNet152_Shield2_belay_10Mbps</code>: experiment2 evaluations for EnergyShield uniform mode when varying wireless channel throughput to 10Mbps</li>
 </ul>
-<p>Within each of these directories, four subdirectories exist to describe whether the experiments were conduceted with/without gaussian noise and with/without safety filter activated. In each one of these subdirectories, we can find the experimental data in <code>*.csv</code> format as follows:</p>
+<p>Within each of these directories, four subdirectories exist to describe whether the experiments were conducted with/without gaussian noise and with/without safety filter activated. In each one of these subdirectories, we can find the experimental data in <code>*.csv</code> format as follows:</p>
 <ul>
-<li><code>plots/*.csv</code> files containing the individual episodal data incurred by the carla simulator when running each episode for the corresponding experimental setting.</li>
+<li><code>plots/*.csv</code> files containing the individual episode's data incurred by the carla simulator when running each episode for the corresponding experimental setting.</li>
 <li><code>valid_data.csv</code> is the file describing the final statistics for every episode within the corresponding experimental configuration</li>
 </ul>
-<p>Information in the former include simulation time, position, steering angle, relative obstacle position, wireless conditions, safety time window, offloading actions, and performance evaluations in terms of latency and energy - all calculated instanteously for every simulation tick.</p>
-<p>Information in the latter include statistics for each episode about total number of ticks, reward, distance travelled, speed, average latency, average energy per inference, average center deviance, and whether the agent has hit an obstacle/curb.</p>
+<p>Information in the former include simulation time, position, steering angle, relative obstacle position, wireless conditions, safety time window, offloading actions, and performance evaluations in terms of latency and energy - all calculated instantaneously for every simulation tick.</p>
+<p>Information in the latter include statistics for each episode about total number of ticks, reward, distance traveled, speed, average latency, average energy per inference, average center deviance, and whether the agent has hit an obstacle/curb.</p>
 <p>Distance data</p>
 <p>For figure 7 (normalized energy variation vs distance (meters)), raw data is used to construct the tables in <code>$HOST_LOCATION/container_results/distance/*.csv</code> which aggregate average normalized energy consumption and #occurrences across 1 m increments of 'distance from obstacle' parameter from all episodes within the subdirectory. Each of these tables is then used to construct a plot from the figure describing how this relation varies under different experimental settings.</p>
 

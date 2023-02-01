@@ -34,8 +34,8 @@ This repeatability artifact uses [Docker](https://docker.com). We will use the f
 Commands meant to be executed inside the host or container will be prefixed with one of the respective comments:
 
 ```Bash
-# HOST COMMANDS
-# CONTAINER COMMANDS
+# <<< HOST COMMANDS >>>
+# <<< CONTAINER COMMANDS >>>
 ```
 
 ## 1. System Requirements
@@ -65,7 +65,7 @@ Commands meant to be executed inside the host or container will be prefixed with
 Choose an install location on the host:
 
 ```Bash
-# HOST COMMANDS
+# <<< HOST COMMANDS >>>
 HOST_LOCATION=/path/to/some/place/convenient
 cd "$HOST_LOCATION"
 ```
@@ -77,7 +77,7 @@ cd "$HOST_LOCATION"
 To start the EnergyShield Docker container, execute the following in a Bash shell on the host (from `$HOST_LOCATION`):
 
 ```Bash
-# HOST COMMANDS
+# <<< HOST COMMANDS >>>
 git clone --recursive https://github.com/MohanadOdema/EnergyShield
 cd EnergyShield
 ./dockerbuild.sh # WARNING: downloads ~30GB of data, and may take > 1 hour even after download!
@@ -92,7 +92,7 @@ where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
 
 > **WARNING:** if you exit the container's Bash shell, then the **container and all experiments will stop**. You may restart the container with the **host** command:
 > ```Bash
-> # HOST COMMANDS
+> # <<< HOST COMMANDS >>>
 > ./dockerrun.sh --interactive --start-carla
 > ```
 > **NOTE:** There is no need to rerun `dockerbuild.sh` when restarting the container in this fashion.
@@ -102,7 +102,7 @@ where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
 From the **container**'s Bash shell execute:
 
 ```Bash
-# CONTAINER COMMANDS
+# <<< CONTAINER COMMANDS >>>
 ps | grep Carla
 ```
 You should see output listing two processes related to Carla:
@@ -115,12 +115,12 @@ You should see output listing two processes related to Carla:
 >
 > **FIX:** Double check that you have installed the correct NVIDIA drivers on the host (see Section 1). Then restart the container using the following sequence of commands:
 > ```Bash
-> # CONTAINER COMMANDS
+> # <<< CONTAINER COMMANDS >>>
 > # Exit from the container if it's still running:
 > exit
 > ```
 > ```Bash
-> # HOST COMMANDS
+> # <<< HOST COMMANDS >>>
 > ./dockerrun.sh --remove # Remove any existsing container
 > ./dockerrun.sh --interactive --start-carla
 > ```
@@ -130,7 +130,7 @@ As per the description in 5.2, we provide the script to initiate new Carla simul
 
 Users can generate their own test results using our pretrained model using the following script:
 ```Bash
-# CONTAINER COMMANDS
+# <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
 # Run Experiment 1 Carla simulation
 ./scripts/run_exp1.sh NUM_EPS
@@ -156,7 +156,7 @@ $HOST_LOCATION/container_results/Fig7_Ergy_v_dist.pdf
 ## 4. Experiment 2 - Performance under wireless channel variation
 In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script:
 ```Bash
-# CONTAINER COMMANDS
+# <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
 # Run Experiment 2 Carla simulations:
 ./scripts/run_exp2.sh NUM_EPS
@@ -175,7 +175,7 @@ $HOST_LOCATION/container_results/Fig9_energy.pdf
 
 This last script generates a `.csv` file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
 ```Bash
-# CONTAINER COMMANDS
+# <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
 # Run Experiment 3 generate model statistics
 ./scripts/exp3_generate_results.sh
