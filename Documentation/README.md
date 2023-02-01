@@ -62,7 +62,7 @@ Choose an install location on the host:
 
 ```Bash
 # HOST COMMANDS
-HOST_LOCATION=/path/to/someplace/convenient
+HOST_LOCATION=/path/to/some/place/convenient
 cd "$HOST_LOCATION"
 ```
 
