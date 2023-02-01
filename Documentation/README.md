@@ -76,7 +76,7 @@ To start the EnergyShield Docker container, exectute the following in a Bash she
 # HOST COMMANDS
 git clone --recursive https://github.com/MohanadOdema/EnergyShield
 cd EnergyShield
-./dockerbuild.sh # WARNING: downloads ~30GB of data, and may take > 1 hour!
+./dockerbuild.sh # WARNING: downloads ~30GB of data, and may take > 1 hour even after download!
 ./dockerrun.sh --interactive --start-carla
 ```
 This should place you at a Bash shell inside a container with EnergyShield installed.

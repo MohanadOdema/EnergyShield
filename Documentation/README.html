@@ -79,7 +79,7 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 </ol>
 <p><strong>SOFTWARE (HOST):</strong></p>
 <ol>
-<li>Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will likewise work)</li>
+<li>Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will work)</li>
 <li>Official <a href="https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html">Linux NVIDIA drivers</a> <strong>(version &gt;= 515.76 is **<em>REQUIRED</em>**)</strong></li>
 <li>A recent version of <a href="https://docs.docker.com/engine/">Docker Engine</a> <strong>(version &gt;= 19.03)</strong>;  also known as <code>containerd</code> or Docker Server but <strong>not</strong> <a href="https://docker.com">Docker Desktop</a></li>
 <li>A recent version of <code>git</code> on the path</li>
@@ -87,13 +87,13 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <li>A user account that can run Docker containers in priviledged mode (i.e. with the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code>--priviledged</code> switch</a>)</li>
 </ol>
 <blockquote>
-<p><strong>WARNING:</strong> The NVIDIA driver version &gt;=515.76 is a <strong>STRICT REQUIREMENT</strong>. This repeatability artifact <strong>WILL NOT WORK</strong> unless the host has official NVIDIA drivers version 515.76 or higher installed.</p>
+<p><strong>WARNING:</strong> NVIDIA driver version &gt;=515.76 is a <strong>STRICT REQUIREMENT</strong>. This repeatability artifact <strong>WILL NOT WORK</strong> unless the host has official NVIDIA drivers version 515.76 or higher installed.</p>
 </blockquote>
 <h2 id="2-setup">2. Setup</h2>
 <h3 id="i-host-paths"><em>(i) Host Paths</em></h3>
 <p>Choose an install location on the host:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
-HOST_LOCATION=/path/to/someplace/convenient
+HOST_LOCATION=/path/to/some/place/convenient
 <span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$HOST_LOCATION</span>&quot;</span>
 </code></pre>
 <blockquote>
@@ -104,7 +104,7 @@ HOST_LOCATION=/path/to/someplace/convenient
 <pre><code class="language-Bash"><span class="hljs-comment"># HOST COMMANDS</span>
 git <span class="hljs-built_in">clone</span> --recursive https://github.com/MohanadOdema/EnergyShield
 <span class="hljs-built_in">cd</span> EnergyShield
-./dockerbuild.sh <span class="hljs-comment"># WARNING: downloads ~30GB of data, and may take &gt; 1 hour!</span>
+./dockerbuild.sh <span class="hljs-comment"># WARNING: downloads ~30GB of data, and may take &gt; 1 hour even after download!</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
 <p>This should place you at a Bash shell inside a container with EnergyShield installed.</p>
@@ -118,7 +118,7 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 <p>The container's Bash shell will have a prompt that looks like:</p>
 <pre><code class="language-Bash">carla@ece2ade62bc5:~$ 
 </code></pre>
-<p>where <code>ece2ade62bc5</code> is a (unique) container id.</p>
+<p>where <code>ece2ade62bc5</code> is a unique container id (i.e. yours will be different).</p>
 <p>Change to the EnergyShield directory inside the container:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># CONTAINER COMMANDS</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
@@ -130,7 +130,8 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 <p>The output produced by subsequent experiment scripts will accessible from the <strong>HOST</strong> path:</p>
 <pre><code class="language-Bash"><span class="hljs-variable">$HOST_LOCATION</span>/EnergyShield/container_results
 </code></pre>
-<p>This path is <a href="https://docs.docker.com/storage/bind-mounts/">bind-mounted</a> to <code>/home/carla/results</code> in the <strong>CONTAINER</strong>: i.e. the contents of one will mirror the contents of the other.</p>
+<p>You may access this directory and its contents from the <strong>host</strong> using whichever file manager/terminal is convenient (i.e. you can &quot;double-click&quot; on this folder from the <strong>host</strong> file manager).</p>
+<p>(This path is <a href="https://docs.docker.com/storage/bind-mounts/">bind-mounted</a> to <code>/home/carla/results</code> in the <strong>CONTAINER</strong>: i.e. the contents of one will mirror the contents of the other.)</p>
 
         <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
         
