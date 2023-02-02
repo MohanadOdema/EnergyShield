@@ -7,7 +7,7 @@ This README describes how to replicate the results in [EnergyShield-ICCPS2023] u
 
 	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
 	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
-	(Experiment 3) Generality to other neural network controllers (Section 5.4) 
+	(Experiment 3) DRL agent performance statistics from Carla simulations (Section 5.4) 
 
 We remark that for the evaluator's convenience, we added a directory containing the original results in our paper under `./paper_results` to facilitate comparison's with the generated results from the users' test cases.
 
