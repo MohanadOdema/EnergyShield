@@ -68,7 +68,7 @@ sh ./scripts/exp2_generate_results.sh
 
 ## 5. Experiment 3 - Generality to other agents
 
-This last experiment tests the generality of EnergyShield by repeating Experiment 1 for 3 additional agents as in Table 1. The output from this experiment will be 4 `.csv` describing the performance statistics for the total 4 simulated agents by the user. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
+This last experiment tests the generality of EnergyShield by repeating Experiment 1 for the 3 additional agents as in Table 1. These agents have their own distinctive learnt policies exhibiting different performance characteristics within the Carla driving simulation. The output from this experiment will be 4 `.csv` describing the performance statistics for the total 4 simulated agents by the user. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
 ```Bash
 # Experiment 3 generate model statistics
 ./scripts/run_exp3.sh `num_eps`
