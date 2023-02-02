@@ -49,6 +49,7 @@ Commands meant to be executed from a shell on the host or the container will be 
 2. 32GB of RAM
 3. An NVIDIA GPU with 8GB of VRAM **(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)**; headless GPUs will work (e.g. servers and Amazon EC2/Microsoft Azure instances)
 4. At least 100GB of free disk space on the filesystem where Docker stores images (the filesystem containing `/var/lib/docker` [by default](https://docs.docker.com/config/daemon/#daemon-data-directory))
+5. An internet connection that can download ~30GB of data
 
 **SOFTWARE (HOST):**
 
