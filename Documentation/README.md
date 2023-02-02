@@ -13,7 +13,7 @@ also enclosed as `ICCPS23_251.pdf`, and hereafter referred to as [EnergyShield-I
 
 	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
 	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
-	(Experiment 3) Generality to other neural network controllers (Section 5.4) 
+	(Experiment 3) EnergyShield generality to other DRL agents (Section 5.4) 
 
 For each of these experiments, this artifact re-generates both new raw data and the analogous plots shown in [EnergyShield-ICCPS2023].
 
@@ -235,3 +235,4 @@ Information in the latter include statistics for each episode about total number
 Distance data
 
 For figure 7 (normalized energy variation vs distance (meters)), raw data is used to construct the tables in `$HOST_LOCATION/container_results/distance/*.csv` which aggregate average normalized energy consumption and #occurrences across 1 m increments of 'distance from obstacle' parameter from all episodes within the subdirectory. Each of these tables is then used to construct a plot from the figure describing how this relation varies under different experimental settings.
+
