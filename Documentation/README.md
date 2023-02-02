@@ -158,7 +158,7 @@ $HOST_LOCATION/container_results/Fig7_Ergy_v_dist.pdf
 ```
 Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. For reference, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in `$HOST_LOCATION/paper_results`.
 
-This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, velocities, etc. of the vehicle); this data is placed in `$HOST_LOCATION/container_results/raw_data`; the analogous raw data from our simulations can be found in `$HOST_LOCATION/paper_results/raw_data` for comparison. The format structure of this data is described in the subsequent section **6. Appendix**.
+This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, velocities, etc. of the vehicle); this data is placed in `$HOST_LOCATION/container_results/raw_data`; the analogous raw data from our simulations can be found in `$HOST_LOCATION/paper_results/raw_data` for comparison. The format and structure of this data is described in the subsequent section **6. Appendix**.
 
 Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data noted above; these summaries are produced as several `.CSV` files output to `$HOST_LOCATION/container_results/distance/*.csv`.
 
