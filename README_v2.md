@@ -7,7 +7,7 @@ This README describes how to replicate the results in [EnergyShield-ICCPS2023] u
 
 	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
 	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
-	(Experiment 3) DRL agent performance statistics from Carla simulations (Section 5.4) 
+	(Experiment 3) EnergyShield generality to other DRL agents (Section 5.4) 
 
 We remark that for the evaluator's convenience, we added a directory containing the original results in our paper under `./paper_results` to facilitate comparison's with the generated results from the users' test cases.
 
@@ -17,8 +17,7 @@ We remark that for the evaluator's convenience, we added a directory containing 
 2. Setup
 3. Experiment 1 - Energy Efficiency and Safety Evaluation
 4. Experiment 2 - Performance under wireless channel variation
-5. Experiment 3 - Performance Statistics
-
+5. Experiment 3 - Generality to other agents
 ## 1. System Requirements
 
 ## 2. Setup
@@ -67,14 +66,19 @@ sh ./scripts/exp2_generate_results.sh
 	../results/Fig8_windows.pdf
 	../results/Fig9_energy.pdf
 
-## 5. Experiment 3 - Performance Statistics
+## 5. Experiment 3 - Generality to other agents
 
-This last script generates a `.csv` file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
+This last experiment tests the generality of EnergyShield by repeating Experiment 1 for 3 additional agents as in Table 1. The output from this experiment will be 4 `.csv` describing the performance statistics for the total 4 simulated agents by the user. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
 ```Bash
 # Experiment 3 generate model statistics
-./scripts/exp3_generate_results.sh
+./scripts/run_exp3.sh `num_eps`
 ```
-The results will be displayed in the terminal and saved in `.csv` format under the path `../results/stats_for_casc_agent_1_new.csv`. 
+The `.csv` files are then generated under the following paths:
+
+	../results/stats_for_casc_agent_1_new.csv 
+	../results/stats_for_casc_agent_2_new.csv 
+	../results/stats_for_casc_agent_3_new.csv 
+	../results/stats_for_casc_agent_4_new.csv 
 
 <!-- can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to genreate our exact numbers. -->
 
