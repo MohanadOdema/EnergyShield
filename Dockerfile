@@ -27,6 +27,8 @@ RUN mkdir -p /home/${USER_NAME}/results
 RUN ssh-keygen -t rsa -q -f /home/${USER_NAME}/.ssh/id_rsa -N ""
 RUN cat /home/${USER_NAME}/.ssh/id_rsa.pub >> /home/${USER_NAME}/.ssh/authorized_keys
 
+RUN sed -i "4i export TF_CPP_MIN_LOG_LEVEL=2" /home/${USER_NAME}/.bashrc
+
 COPY --chown=${UID}:${GID} . /home/${USER_NAME}/EnergyShield
 
 
