@@ -1,18 +1,21 @@
 # EnergyShield (ICCPS '23, Submission 251)
 
-EnergyShield is a framework for provably-safe offloading of neural network controllers at the edge. It is described in the paper:
+EnergyShield is an Autonomous Driving System framework designed to save energy on-vehicle by wirelessly offloading NN computations to edge computers, while at the same time maintaining a formal guarantee of safety. In particular, EnergyShield uses a barrier function/controller shield to provide provably safe edge response times for NN offloading requests; on vehicle evaluation provides a safety fallback.
+
+EnergyShield is described in the paper:
 
 >_EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency._  
 >Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al Faruque. ICCPS 2023: 14th ACM/IEEE International Conference on Cyber-Physical Systems.
 
 also enclosed as `ICCPS23_251.pdf`, and hereafter referred to as [EnergyShield-ICCPS23].
 
-This README describes how to replicate the results in [EnergyShield-ICCPS2023] using code packaged in a provided Docker image. This includes generating new experimental data from new Carla simulation instances and creating plots for three numerical experiments:
+[EnergyShield-ICCPS2023] contains a number of experiments showing the efficacy of EnergyShield in the [Carla](https://carla.org) simulation environment. This README describes how to replicate those results using code packaged in a [Docker](https://docs.docker.com/engine/) image. In particular, this artifact reruns from scratch the following experiments from [EnergyShield-ICCPS2023]:
 
 	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
 	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
 	(Experiment 3) Generality to other neural network controllers (Section 5.4) 
 
+For each of these experiments, this artifact re-generates both new raw data and the analogous plots shown in [EnergyShield-ICCPS2023].
 
 ## Contents
 
@@ -26,12 +29,12 @@ This README describes how to replicate the results in [EnergyShield-ICCPS2023] u
 
 ## 0. Terminology
 
-This repeatability artifact uses [Docker](https://docker.com). We will use the following terminology throughout:
+This repeatability artifact uses [Docker](https://docs.docker.com/engine/). We will use the following terminology throughout:
 
 * The **HOST** will refer to the system running Docker (e.g. your laptop).
 * The **CONTAINER** will refer to the "virtualized" system created by Docker (this is where the code from the artifact is run).
 
-Commands meant to be executed inside the host or container will be prefixed with one of the respective comments:
+Commands meant to be executed from a shell on the host or the container will be prefixed with one of the following comments, respectively:
 
 ```Bash
 # <<< HOST COMMANDS >>>
@@ -45,11 +48,11 @@ Commands meant to be executed inside the host or container will be prefixed with
 1. An x86-64 CPU
 2. 32GB of RAM
 3. An NVIDIA GPU with 8GB of VRAM **(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)**; headless GPUs will work (e.g. servers and Amazon EC2/Microsoft Azure instances)
-4. At least 100GB of free disk space on the filesystem where Docker stores images (`/var/lib/docker` [by default](https://docs.docker.com/config/daemon/#daemon-data-directory))
+4. At least 100GB of free disk space on the filesystem where Docker stores images (the filesystem containing `/var/lib/docker` [by default](https://docs.docker.com/config/daemon/#daemon-data-directory))
 
 **SOFTWARE (HOST):**
 
-1. Un-virtualized Linux operating system (tested on Ubuntu 20.04 but any distribution that meets the remaining requirements should work; headless installs will work)
+1. Un-virtualized Linux operating system; headless and cloud (e.g. Amazon EC2/Microsoft Azure) installs will work (tested on Ubuntu 20.04, but any distribution that meets the remaining requirements should work)
 2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is \*\*_REQUIRED_\*\*)**
 3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**; also known as Docker Server but **not** [Docker Desktop](https://docker.com)
 4. A recent version of `git` on the path
@@ -105,7 +108,7 @@ From the **container**'s Bash shell execute:
 # <<< CONTAINER COMMANDS >>>
 ps | grep Carla
 ```
-You should see output listing two processes related to Carla:
+You should see output listing two processes related to [Carla](https://carla.org):
 
 ```Bash
      45 pts/0    00:00:00 CarlaUE4.sh
@@ -113,7 +116,7 @@ You should see output listing two processes related to Carla:
 ```
 > **WARNING:** if the above command produces no output, then Carla is not running, and this repeatability artifact **WILL NOT WORK**.
 >
-> **FIX:** Double check that you have installed the correct NVIDIA drivers on the host (see Section 1). Then restart the container using the following sequence of commands:
+> **FIX:** Double check that your host system meets the requirements in Section 1, especially the NVIDIA driver requirements (incorrect NVIDIA drivers are usually what prevents Carla from starting). If your system meets these requirements, then try restarting the container using the following sequence of commands:
 > ```Bash
 > # <<< CONTAINER COMMANDS >>>
 > # Exit from the container if it's still running:
@@ -126,9 +129,10 @@ You should see output listing two processes related to Carla:
 > ```
 
 ## 3. Experiment 1 - Energy Efficiency and Safety Evaluation
-As per the description in 5.2, we provide the script to initiate new Carla simulation runs that compare the performance of EnergyShield (with both its eager and uniform modes) to the conventional local execution mode with regards to energy efficiency and safety. 
 
-Users can generate their own test results using our pretrained model using the following script:
+In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [EnergyShield-ICCPS2023], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations are randomized.
+
+To rerun this experiment (with randomized obstacles), execute the following commands in the **container**:
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
@@ -136,15 +140,15 @@ cd /home/carla/EnergyShield
 ./scripts/run_exp1.sh NUM_EPS
 ```
 <!-- `model` is the name of the pretrained model directory(default: "casc_agent_1_new"). Users do not need to alter this argument for it indicates new simulation experiments using our pretrained RL model. -->
-`NUM_EPS` is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although `NUM_EPS` in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with `NUM_EPS` set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super. 
+`NUM_EPS` is an optional argument specifying the number of episodes to run (default: `NUM_EPS=3`); an episode is defined as one run of the fixed track until either the vehicle completes the track or hits an obstacle. For [EnergyShield-ICCPS2023], we ran this experiment for 35 episodes.
 
-Once the simulations terminate, raw data generated by carla simulations are copied to `../results/raw_data/`. The raw data provides information and statistics on the agent's performance based on its driving and offloading decisions. For convenience, we provide a description of the file hierarchy and what each data field represents in this readme's appendix. 
+> **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 1 hour on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
-Afterwards, figures 5, 6, and 7 can be generated in .pdf format based on the raw data in the below paths. We remark the following:
-- Figure 6 trajectories are generated based on 3 random episodes from the user's generated files. The figure may not possess the same driving patterns as ours for it depends on the RL agent's driving decisions (For instance, in an extreme corner cases, vehicle's trajectory can be a point indicating the RL agent remained stationary)
-- Figure 7 (Energy vs. distance) is generated based on statistical representation of raw data in `../results/distance/*.csv` - also described in the appendix. 
+<!-- `NUM_EPS` is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although `NUM_EPS` in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with `NUM_EPS` set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super. 
 
-The figures can be found on the **HOST** at the following paths:
+Once the simulations terminate, raw data generated by carla simulations are copied to `../results/raw_data/`. The raw data provides information and statistics on the agent's performance based on its driving and offloading decisions. For convenience, we provide a description of the file hierarchy and what each data field represents in this readme's appendix.  -->
+
+The primary output of this script are figures that summarize the energy savings and safety properties of EnergyShield (across however the number of episodes specified by `NUM_EPS`). These figures can be found on the **HOST** at the following paths:
 ```Bash
 $HOST_LOCATION/container_results/Fig5_Energy.pdf
 $HOST_LOCATION/container_results/Fig5_Safety.pdf
@@ -152,6 +156,17 @@ $HOST_LOCATION/container_results/Fig6_traj_noise_False.pdf
 $HOST_LOCATION/container_results/Fig6_traj_noise_True.pdf
 $HOST_LOCATION/container_results/Fig7_Ergy_v_dist.pdf
 ```
+Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. For reference, those figures are available with the same filenames in `$HOST_LOCATION/paper_results`.
+
+This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, velocities, etc. of the vehicle); this data is placed in `$HOST_LOCATION/container_results/raw_data`; the analogous raw data from our simulations can be found in `$HOST_LOCATION/paper_results/raw_data` for comparison. The format structure of this data is described in the subsequent section **6. Appendix**.
+
+Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data in noted above; these summaries appear as several `.CSV` files located in `$HOST_LOCATION/container_results/distance/*.csv`.
+
+<!-- Afterwards, figures 5, 6, and 7 can be generated in .pdf format based on the raw data in the below paths. We remark the following:
+- Figure 6 trajectories are generated based on 3 random episodes from the user's generated files. The figure may not possess the same driving patterns as ours for it depends on the RL agent's driving decisions (For instance, in an extreme corner cases, vehicle's trajectory can be a point indicating the RL agent remained stationary)
+- Figure 7 (Energy vs. distance) is generated based on statistical representation of raw data in `../results/distance/*.csv` - also described in the appendix.  -->
+
+
 
 ## 4. Experiment 2 - Performance under wireless channel variation
 In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script:
