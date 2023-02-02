@@ -160,7 +160,7 @@ Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023
 
 This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, velocities, etc. of the vehicle); this data is placed in `$HOST_LOCATION/container_results/raw_data`; the analogous raw data from our simulations can be found in `$HOST_LOCATION/paper_results/raw_data` for comparison. The format structure of this data is described in the subsequent section **6. Appendix**.
 
-Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data in noted above; these summaries appear as several `.CSV` files located in `$HOST_LOCATION/container_results/distance/*.csv`.
+Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data noted above; these summaries are produced as several `.CSV` files output to `$HOST_LOCATION/container_results/distance/*.csv`.
 
 <!-- Afterwards, figures 5, 6, and 7 can be generated in .pdf format based on the raw data in the below paths. We remark the following:
 - Figure 6 trajectories are generated based on 3 random episodes from the user's generated files. The figure may not possess the same driving patterns as ours for it depends on the RL agent's driving decisions (For instance, in an extreme corner cases, vehicle's trajectory can be a point indicating the RL agent remained stationary)
