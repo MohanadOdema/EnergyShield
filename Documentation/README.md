@@ -166,7 +166,7 @@ cd /home/carla/EnergyShield
 
 > **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
 
-> **NOTE:**  Experiments can be run consecutively in the same container, or in between container restarts.
+> **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts.
 
 > **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see Section 2 _(iv)_). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in Section 2 _(iv)_.
 
@@ -212,7 +212,7 @@ The optional parameter `NUM_EPS` has a similar interpretation to Experiment 1 (d
 
 > **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
 
-> **NOTE:**  Experiments can be run consecutively in the same container, or in between container restarts.
+> **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts.
 
 > **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see Section 2 _(iv)_). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in Section 2 _(iv)_.
 
