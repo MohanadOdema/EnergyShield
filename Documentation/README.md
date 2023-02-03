@@ -7,7 +7,7 @@ EnergyShield is described in the paper:
 >_EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency._  
 >Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al Faruque. ICCPS 2023: 14th ACM/IEEE International Conference on Cyber-Physical Systems.
 
-also enclosed as `ICCPS23_251.pdf`, and hereafter referred to as [EnergyShield-ICCPS23].
+which is appended to this document, and hereafter referred to as [EnergyShield-ICCPS23].
 
 [EnergyShield-ICCPS2023] contains a number of experiments showing the efficacy of EnergyShield in the [Carla](https://carla.org) simulation environment. This README describes how to replicate those results using code packaged in a [Docker](https://docs.docker.com/engine/) image. In particular, this artifact reruns from scratch the following experiments from [EnergyShield-ICCPS2023]:
 
