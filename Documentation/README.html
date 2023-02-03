@@ -52,7 +52,7 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <p>[EnergyShield-ICCPS2023] contains a number of experiments showing the efficacy of EnergyShield in the <a href="https://carla.org">Carla</a> simulation environment. This README describes how to replicate those results using code packaged in a <a href="https://docs.docker.com/engine/">Docker</a> image. In particular, this artifact reruns from scratch the following experiments from [EnergyShield-ICCPS2023]:</p>
 <pre><code>(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
 (Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
-(Experiment 3) Generality to other neural network controllers (Section 5.4) 
+(Experiment 3) EnergyShield generality to other DRL agents (Section 5.4) 
 </code></pre>
 <p>For each of these experiments, this artifact re-generates both new raw data and the analogous plots shown in [EnergyShield-ICCPS2023].</p>
 <h2 id="contents">Contents</h2>
@@ -62,7 +62,7 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <li>Setup</li>
 <li>Experiment 1 - Energy Efficiency and Safety Evaluation</li>
 <li>Experiment 2 - Performance under wireless channel variation</li>
-<li>Experiment 3 - Performance Statistics</li>
+<li>Experiment 3 - Comparison Between Multiple Controllers</li>
 <li>Appendix</li>
 </ol>
 <h2 id="0-terminology">0. Terminology</h2>
@@ -82,6 +82,7 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <li>32GB of RAM</li>
 <li>An NVIDIA GPU with 8GB of VRAM <strong>(Geforce 20xx series or later; GTX 2080Ti and V100 cards were tested)</strong>; headless GPUs will work (e.g. servers and Amazon EC2/Microsoft Azure instances)</li>
 <li>At least 100GB of free disk space on the filesystem where Docker stores images (the filesystem containing <code>/var/lib/docker</code> <a href="https://docs.docker.com/config/daemon/#daemon-data-directory">by default</a>)</li>
+<li>An internet connection that can download ~30GB of data</li>
 </ol>
 <p><strong>SOFTWARE (HOST):</strong></p>
 <ol>
@@ -99,18 +100,30 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <h3 id="i-host-paths"><em>(i) Host Paths</em></h3>
 <p>Choose an install location on the host:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
-HOST_LOCATION=/path/to/some/place/convenient
-<span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$HOST_LOCATION</span>&quot;</span>
+INSTALL_LOCATION=/path/to/some/place/convenient
+<span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$INSTALL_LOCATION</span>&quot;</span>
+</code></pre>
+<p>EnergyShield will be installed on the <strong>host</strong> at:</p>
+<pre><code class="language-Bash">ES_PATH=<span class="hljs-string">&quot;<span class="hljs-variable">$INSTALL_LOCATION</span>/EnergyShield&quot;</span>
 </code></pre>
 <blockquote>
-<p><strong>NOTE:</strong> All subsequent <strong>HOST</strong> paths in this readme are assumed to be relative to <code>$HOST_LOCATION</code>.</p>
+<p><strong>NOTE:</strong> All subsequent <strong>HOST</strong> paths in this readme are assumed to be relative to <code>$ES_PATH</code> unless otherwise specified.</p>
 </blockquote>
-<h3 id="ii-starting-the-docker-container"><em>(ii) Starting the Docker Container</em></h3>
-<p>To start the EnergyShield Docker container, execute the following in a Bash shell on the host (from <code>$HOST_LOCATION</code>):</p>
+<h3 id="ii-installing-energyshieldbuilding-the-docker-image"><em>(ii) Installing EnergyShield/Building the Docker Image</em></h3>
+<p>To install EnergyShield and build the EnergyShield Docker image, execute the following in a Bash shell on the host (from <code>$INSTALL_LOCATION</code>):</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
+<span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$INSTALL_LOCATION</span>&quot;</span>
 git <span class="hljs-built_in">clone</span> --recursive https://github.com/MohanadOdema/EnergyShield
 <span class="hljs-built_in">cd</span> EnergyShield
 ./dockerbuild.sh <span class="hljs-comment"># WARNING: downloads ~30GB of data, and may take &gt; 1 hour even after download!</span>
+</code></pre>
+<blockquote>
+<p><strong>NOTE:</strong> <code>dockerbuild.sh</code> only ever needs to be run once per host user account, unless an updated version is released.</p>
+</blockquote>
+<h3 id="iii-starting-a-docker-container"><em>(iii) Starting a Docker Container</em></h3>
+<p>First, make sure you have successfully built an EnergyShield Docker image. See section <em>(ii)</em> above.</p>
+<p>Then to start the EnergyShield Docker container, execute the following in a Bash shell on the host (from <code>$ES_PATH</code>):</p>
+<pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
 <p>This should place you at a Bash shell inside a container with EnergyShield installed. The container's Bash shell will have a prompt that looks like:</p>
@@ -122,10 +135,10 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
-<p><strong>NOTE:</strong> There is no need to rerun <code>dockerbuild.sh</code> when restarting the container in this fashion.</p>
 </blockquote>
-<h3 id="iii-testing-the-container"><em>(iii) Testing the Container</em></h3>
-<p>From the <strong>container</strong>'s Bash shell execute:</p>
+<h3 id="iv-testing-the-container"><em>(iv) Testing the Container</em></h3>
+<p>First, make sure you have an EnergyShield container running. See section <em>(iii)</em> above.</p>
+<p>Then from the <strong>container</strong>'s Bash shell execute:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 ps | grep Carla
 </code></pre>
@@ -134,12 +147,13 @@ ps | grep Carla
      52 pts/0    00:01:00 CarlaUE4-Linux-
 </code></pre>
 <blockquote>
-<p><strong>WARNING:</strong> if the above command produces no output, then Carla is not running, and this repeatability artifact <strong>WILL NOT WORK</strong>.</p>
+<p><strong>WARNING:</strong> if the above command produces no output or output unlike the above, then Carla is not running, and this repeatability artifact <strong>WILL NOT WORK</strong>.</p>
 <p><strong>FIX:</strong> Double check that your host system meets the requirements in Section 1, especially the NVIDIA driver requirements (incorrect NVIDIA drivers are usually what prevents Carla from starting). If your system meets these requirements, then try restarting the container using the following sequence of commands:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-comment"># Exit from the container if it&#x27;s still running:</span>
 <span class="hljs-built_in">exit</span>
 </code></pre>
+<p>And then in <code>$ES_PATH</code>:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --remove <span class="hljs-comment"># Remove any existsing container</span>
 ./dockerrun.sh --interactive --start-carla
@@ -147,7 +161,7 @@ ps | grep Carla
 </blockquote>
 <h2 id="3-experiment-1---energy-efficiency-and-safety-evaluation">3. Experiment 1 - Energy Efficiency and Safety Evaluation</h2>
 <p>In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [EnergyShield-ICCPS2023], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.</p>
-<p>To rerun this experiment, execute the following commands in the <strong>container</strong>:</p>
+<p>To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 <em>(iii)</em>), and execute the following commands in the <strong>container</strong>'s bash shell:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 <span class="hljs-comment"># Run Experiment 1 Carla simulation</span>
@@ -161,26 +175,29 @@ ps | grep Carla
 <blockquote>
 <p><strong>NOTE:</strong> When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.</p>
 </blockquote>
+<blockquote>
+<p><strong>NOTE:</strong>  Experiments can be run consecutively in the same container, or in between container restarts.</p>
+</blockquote>
 <!-- `NUM_EPS` is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although `NUM_EPS` in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with `NUM_EPS` set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super. 
 
 Once the simulations terminate, raw data generated by carla simulations are copied to `../results/raw_data/`. The raw data provides information and statistics on the agent's performance based on its driving and offloading decisions. For convenience, we provide a description of the file hierarchy and what each data field represents in this readme's appendix.  -->
 <p>The primary outputs of this script are figures that summarize the energy savings and safety properties of EnergyShield (across the number of episodes specified by <code>NUM_EPS</code>). These figures can be found on the <strong>HOST</strong> at the following paths:</p>
-<pre><code class="language-Bash"><span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig5_Energy.pdf
-<span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig5_Safety.pdf
-<span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig6_traj_noise_False.pdf
-<span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig6_traj_noise_True.pdf
-<span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig7_Ergy_v_dist.pdf
+<pre><code class="language-Bash"><span class="hljs-variable">$ES_PATH</span>/container_results/Fig5_Energy.pdf
+<span class="hljs-variable">$ES_PATH</span>/container_results/Fig5_Safety.pdf
+<span class="hljs-variable">$ES_PATH</span>/container_results/Fig6_traj_noise_False.pdf
+<span class="hljs-variable">$ES_PATH</span>/container_results/Fig6_traj_noise_True.pdf
+<span class="hljs-variable">$ES_PATH</span>/container_results/Fig7_Ergy_v_dist.pdf
 </code></pre>
-<p>Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. For reference, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in <code>$HOST_LOCATION/paper_results</code>.</p>
-<p>This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, velocities, etc. of the vehicle); this data is placed in <code>$HOST_LOCATION/container_results/raw_data</code>; the analogous raw data from our simulations can be found in <code>$HOST_LOCATION/paper_results/raw_data</code> for comparison. The format and structure of this data is described in the subsequent section <strong>6. Appendix</strong>.</p>
-<p>Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data noted above; these summaries are produced as several <code>.CSV</code> files output to <code>$HOST_LOCATION/container_results/distance/*.csv</code>.</p>
+<p>Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. For reference, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in <code>$ES_PATH/paper_results</code>.</p>
+<p>This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, velocities, etc. of the vehicle); this data is placed in <code>$ES_PATH/container_results/raw_data</code>; the analogous raw data from our simulations can be found in <code>$ES_PATH/paper_results/raw_data</code> for comparison. The format and structure of this data is described in the subsequent section <strong>6. Appendix</strong>.</p>
+<p>Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data noted above; these summaries are produced as several <code>.CSV</code> files output to <code>$ES_PATH/container_results/distance/*.csv</code>.</p>
 <!-- Afterwards, figures 5, 6, and 7 can be generated in .pdf format based on the raw data in the below paths. We remark the following:
 - Figure 6 trajectories are generated based on 3 random episodes from the user's generated files. The figure may not possess the same driving patterns as ours for it depends on the RL agent's driving decisions (For instance, in an extreme corner cases, vehicle's trajectory can be a point indicating the RL agent remained stationary)
 - Figure 7 (Energy vs. distance) is generated based on statistical representation of raw data in `../results/distance/*.csv` - also described in the appendix.  -->
 <h2 id="4-experiment-2---performance-under-wireless-channel-variation">4. Experiment 2 - Performance under wireless channel variation</h2>
 <p>In this experiment, we evaluated the energy savings provided by EnergyShield as a function of different wireless-link conditions to the edge; see [EnergyShield-ICCPS2023], Section 5.3. This experiment uses mostly the same setup as Experiment 1, including the same NN controller and track. However, in this experiment, batches of episodes are run under five different simulated wireless-link conditions. As before, this artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.</p>
 <!-- In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script: -->
-<p>To rerun this experiment, execute the following commands in the <strong>container</strong>:</p>
+<p>To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 <em>(iii)</em>), and execute the following commands in the <strong>container</strong>'s bash shell</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 <span class="hljs-comment"># Run Experiment 2 Carla simulations:</span>
@@ -193,29 +210,32 @@ Once the simulations terminate, raw data generated by carla simulations are copi
 <blockquote>
 <p><strong>NOTE:</strong> When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.</p>
 </blockquote>
+<blockquote>
+<p><strong>NOTE:</strong>  Experiments can be run consecutively in the same container, or in between container restarts.</p>
+</blockquote>
 <!-- This script will instantiate 5 additional experiments of varying wireless conditions. Once the simulations are terminated, their corresponding raw data files are copied to `../results/raw_data`, which are then used to generate the box and whisker plots of Figures 8 and 9 describing additional offloading windows (%) and the normalized energy consumption (w.r.t local execution) under different wireless conditions:  -->
 <!-- ```Bash
 # Experiment 2 Figures' Generation
 sh ./scripts/exp2_generate_results.sh
 ``` -->
 <p>The primary outputs of this script are figures that summarize the energy performance of EnergyShield under these different wireless conditions, including the number of local-execution fallbacks required. These figures can be found on the <strong>HOST</strong> at the following paths:</p>
-<pre><code class="language-Bash"><span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig8_windows.pdf
-<span class="hljs-variable">$HOST_LOCATION</span>/container_results/Fig9_energy.pdf
+<pre><code class="language-Bash"><span class="hljs-variable">$ES_PATH</span>/container_results/Fig8_windows.pdf
+<span class="hljs-variable">$ES_PATH</span>/container_results/Fig9_energy.pdf
 </code></pre>
-<p>As before, their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. Likewise, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in <code>$HOST_LOCATION/paper_results</code>.</p>
-<p>The raw data from this experiment is similarly placed in <code>$HOST_LOCATION/container_results/raw_data</code>, and the analogous raw data from our simulations is in <code>$HOST_LOCATION/paper_results/raw_data</code> for comparison. See the the subsequent section <strong>6. Appendix</strong> for a description of the format and structure of this raw data.</p>
-<h2 id="5-experiment-3---performance-statistics">5. Experiment 3 - Performance Statistics</h2>
+<p>As before, their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. Likewise, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in <code>$ES_PATH/paper_results</code>.</p>
+<p>The raw data from this experiment is similarly placed in <code>$ES_PATH/container_results/raw_data</code>, and the analogous raw data from our simulations is in <code>$ES_PATH/paper_results/raw_data</code> for comparison. See the the subsequent section <strong>6. Appendix</strong> for a description of the format and structure of this raw data.</p>
+<h2 id="5-experiment-3---comparison-between-multiple-controllers">5. Experiment 3 - Comparison Between Multiple Controllers</h2>
 <p>This last script generates a <code>.csv</code> file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; CONTAINER COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> /home/carla/EnergyShield
 <span class="hljs-comment"># Run Experiment 3 generate model statistics</span>
 ./scripts/exp3_generate_results.sh
 </code></pre>
-<p>The results will be displayed in the terminal and saved in <code>.csv</code> format under the path <code>$HOST_LOCATION/container_results/stats_for_casc_agent_1_new.csv</code>.</p>
+<p>The results will be displayed in the terminal and saved in <code>.csv</code> format under the path <code>$ES_PATH/container_results/stats_for_casc_agent_1_new.csv</code>.</p>
 <!-- can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to generate our exact numbers. -->
 <h2 id="6-appendix">6. Appendix</h2>
 <p>Raw Data</p>
-<p>Under <code>$HOST_LOCATION/container_results/raw_data/</code>, every directory describes the evaluation results for a set of episodes. The name suffix of each directory describes the experimental configuration setting these evaluations belong to. For instance:</p>
+<p>Under <code>$ES_PATH/container_results/raw_data/</code>, every directory describes the evaluation results for a set of episodes. The name suffix of each directory describes the experimental configuration setting these evaluations belong to. For instance:</p>
 <ul>
 <li>Directory <code>Town04_OPT_ResNet152_Shield2_early</code>: experiment1 evaluations for EnergyShield early mode at default wireless settings</li>
 <li>Directory <code>Town04_OPT_ResNet152_Shield2_belay_10Mbps</code>: experiment2 evaluations for EnergyShield uniform mode when varying wireless channel throughput to 10Mbps</li>
@@ -228,7 +248,7 @@ sh ./scripts/exp2_generate_results.sh
 <p>Information in the former include simulation time, position, steering angle, relative obstacle position, wireless conditions, safety time window, offloading actions, and performance evaluations in terms of latency and energy - all calculated instantaneously for every simulation tick.</p>
 <p>Information in the latter include statistics for each episode about total number of ticks, reward, distance traveled, speed, average latency, average energy per inference, average center deviance, and whether the agent has hit an obstacle/curb.</p>
 <p>Distance data</p>
-<p>For figure 7 (normalized energy variation vs distance (meters)), raw data is used to construct the tables in <code>$HOST_LOCATION/container_results/distance/*.csv</code> which aggregate average normalized energy consumption and #occurrences across 1 m increments of 'distance from obstacle' parameter from all episodes within the subdirectory. Each of these tables is then used to construct a plot from the figure describing how this relation varies under different experimental settings.</p>
+<p>For figure 7 (normalized energy variation vs distance (meters)), raw data is used to construct the tables in <code>$ES_PATH/container_results/distance/*.csv</code> which aggregate average normalized energy consumption and #occurrences across 1 m increments of 'distance from obstacle' parameter from all episodes within the subdirectory. Each of these tables is then used to construct a plot from the figure describing how this relation varies under different experimental settings.</p>
 
         <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
         
