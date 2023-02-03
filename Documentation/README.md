@@ -146,7 +146,7 @@ You should see output listing two processes related to [Carla](https://carla.org
 
 In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [EnergyShield-ICCPS2023], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
-To rerun this experiment, execute the following commands in the **container**:
+To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 _(iii)_), and execute the following commands in the **container**'s bash shell:
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
@@ -159,6 +159,8 @@ cd /home/carla/EnergyShield
 > **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 1 hour on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
 > **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
+
+> **NOTE:**  Experiments can be run consecutively in the same container, or in between container restarts.
 
 <!-- `NUM_EPS` is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although `NUM_EPS` in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with `NUM_EPS` set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super. 
 
@@ -189,7 +191,7 @@ Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics 
 In this experiment, we evaluated the energy savings provided by EnergyShield as a function of different wireless-link conditions to the edge; see [EnergyShield-ICCPS2023], Section 5.3. This experiment uses mostly the same setup as Experiment 1, including the same NN controller and track. However, in this experiment, batches of episodes are run under five different simulated wireless-link conditions. As before, this artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
 <!-- In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script: -->
-To rerun this experiment, execute the following commands in the **container**:
+To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 _(iii)_), and execute the following commands in the **container**'s bash shell
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
@@ -201,6 +203,8 @@ The optional parameter `NUM_EPS` has a similar interpretation to Experiment 1 (d
 > **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 2 - 3 hours on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
 > **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
+
+> **NOTE:**  Experiments can be run consecutively in the same container, or in between container restarts.
 
 <!-- This script will instantiate 5 additional experiments of varying wireless conditions. Once the simulations are terminated, their corresponding raw data files are copied to `../results/raw_data`, which are then used to generate the box and whisker plots of Figures 8 and 9 describing additional offloading windows (%) and the normalized energy consumption (w.r.t local execution) under different wireless conditions:  -->
 <!-- ```Bash
