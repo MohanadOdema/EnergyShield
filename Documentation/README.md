@@ -7,15 +7,17 @@ EnergyShield is described in the paper:
 >_EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency._  
 >Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al Faruque. ICCPS 2023: 14th ACM/IEEE International Conference on Cyber-Physical Systems.
 
-which is appended to this document, and hereafter referred to as [EnergyShield-ICCPS23].
+which is appended to this document, and hereafter referred to as [ES23].
 
-[EnergyShield-ICCPS2023] contains a number of experiments showing the efficacy of EnergyShield in the [Carla](https://carla.org) simulation environment. This README describes how to replicate those results using code packaged in a [Docker](https://docs.docker.com/engine/) image. In particular, this artifact reruns from scratch the following experiments from [EnergyShield-ICCPS2023]:
+[ES23] contains a number of experiments showing the efficacy of EnergyShield in the [Carla](https://carla.org) simulation environment. This README describes how to replicate those results using code packaged in a [Docker](https://docs.docker.com/engine/) image. In particular, this artifact reruns from scratch the following experiments from [ES23]:
 
-	Experiment 1: Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2, [EnergyShield-ICCPS2023])
-	Experiment 2: Performance Gains from EnergyShield given wireless channel variation (Section 5.3, [EnergyShield-ICCPS2023])
-	Experiment 3: EnergyShield generality to other DRL agents (Section 5.4, [EnergyShield-ICCPS2023]) 
+&nbsp;&nbsp;&nbsp;&nbsp;[**Experiment 1 _[ES23, Section 5.2]_**](#3-experiment-1---energy-efficiency-and-safety-evaluation): _Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs_
 
-For each of these experiments, this artifact re-generates both new raw data and the analogous plots shown in [EnergyShield-ICCPS2023].
+&nbsp;&nbsp;&nbsp;&nbsp;[**Experiment 2  _[ES23, Section 5.3]_**](#4-experiment-2---performance-under-wireless-channel-variation) : _Performance Gains from EnergyShield given wireless channel variation_
+
+&nbsp;&nbsp;&nbsp;&nbsp;[**Experiment 3 _[ES23, Section 5.4]_**](#5-experiment-3---comparison-between-multiple-controllers): _EnergyShield generality to other DRL agents_
+
+For each of these experiments, this artifact re-generates both new raw data and the analogous plots shown in [ES23].
 
 ## Contents
 
@@ -150,7 +152,7 @@ You should see output listing two processes related to [Carla](https://carla.org
 
 ## 3. Experiment 1 - Energy Efficiency and Safety Evaluation
 
-In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [EnergyShield-ICCPS2023], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
+In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [ES23], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
 To rerun this experiment, ensure that you have an EnergyShield container running (see [Section 2 _(iii)_](#iii-starting-a-docker-container)), and execute the following commands in the **container**'s bash shell:
 ```Bash
@@ -160,7 +162,7 @@ cd /home/carla/EnergyShield
 ./scripts/run_exp1.sh NUM_EPS
 ```
 <!-- `model` is the name of the pretrained model directory(default: "casc_agent_1_new"). Users do not need to alter this argument for it indicates new simulation experiments using our pretrained RL model. -->
-`NUM_EPS` is an optional argument specifying the number of episodes to run (default: `NUM_EPS=3`); an episode is defined as one run of the fixed track until either the vehicle completes the track or hits an obstacle. For [EnergyShield-ICCPS2023], we ran this experiment for 35 episodes.
+`NUM_EPS` is an optional argument specifying the number of episodes to run (default: `NUM_EPS=3`); an episode is defined as one run of the fixed track until either the vehicle completes the track or hits an obstacle. For [ES23], we ran this experiment for 35 episodes.
 
 > **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 1 hour on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
@@ -182,7 +184,7 @@ $ES_PATH/container_results/Fig6_traj_noise_False.pdf
 $ES_PATH/container_results/Fig6_traj_noise_True.pdf
 $ES_PATH/container_results/Fig7_Ergy_v_dist.pdf
 ```
-Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. For reference, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in `$ES_PATH/paper_results`.
+Their filenames match them to the figures that appear in [ES23]. For reference, the figures from [ES23] are also available with the same filenames in `$ES_PATH/paper_results`.
 
 This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, control actions, etc. of the vehicle); this data is placed in `$ES_PATH/container_results/raw_data`; the analogous raw data from our simulations can be found in `$ES_PATH/paper_results/raw_data` for comparison. The format and structure of this data is described in the subsequent [Appendix](#6-appendix).
 
@@ -196,7 +198,7 @@ Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics 
 
 ## 4. Experiment 2 - Performance under wireless channel variation
 
-In this experiment, we evaluated the energy savings provided by EnergyShield as a function of different wireless-link conditions to the edge; see [EnergyShield-ICCPS2023], Section 5.3. This experiment uses mostly the same setup as Experiment 1, including the same NN controller and track. However, in this experiment, batches of episodes are run under five different simulated wireless-link conditions. As before, this artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
+In this experiment, we evaluated the energy savings provided by EnergyShield as a function of different wireless-link conditions to the edge; see [ES23], Section 5.3. This experiment uses mostly the same setup as Experiment 1, including the same NN controller and track. However, in this experiment, batches of episodes are run under five different simulated wireless-link conditions. As before, this artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
 <!-- In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script: -->
 To rerun this experiment, ensure that you have an EnergyShield container running (see [Section 2 _(iii)_](#iii-starting-a-docker-container)), and execute the following commands in the **container**'s bash shell
@@ -226,13 +228,13 @@ The primary outputs of this script are figures that summarize the energy perform
 $ES_PATH/container_results/Fig8_windows.pdf
 $ES_PATH/container_results/Fig9_energy.pdf
 ```
-As before, their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. Likewise, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in `$ES_PATH/paper_results`.
+As before, their filenames match them to the figures that appear in [ES23]. Likewise, the figures from [ES23] are also available with the same filenames in `$ES_PATH/paper_results`.
 
 The raw data from this experiment is similarly placed in `$ES_PATH/container_results/raw_data`, and the analogous raw data from our simulations is in `$ES_PATH/paper_results/raw_data` for comparison. See the the subsequent [Appendix](#6-appendix) for a description of the format and structure of this raw data.
 
 ## 5. Experiment 3 - Comparison Between Multiple Controllers
 
-In this experiment, we again compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; however, in this experiment, we compared this performance between different NN controllers (four total, including the one used in [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation)). Hence, this experiment effectively amounts to re-running [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) on three additional RL-trained NN controllers; see [EnergyShield-ICCPS2023], Section 5.4. As before, this artifact reuses the same track and NN controllers from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
+In this experiment, we again compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; however, in this experiment, we compared this performance between different NN controllers (four total, including the one used in [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation)). Hence, this experiment effectively amounts to re-running [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) on three additional RL-trained NN controllers; see [ES23], Section 5.4. As before, this artifact reuses the same track and NN controllers from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
 > **NOTE:** To get complete results you should run Experiment 1 first.
 
@@ -255,7 +257,7 @@ cd /home/carla/EnergyShield
 
 > **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see [Section 2 _(iv)_](#iv-testing-the-container)). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in [Section 2 _(iv)_](#iv-testing-the-container).
 
-The primary outputs of this script are a collection of `*.CSV` files containing summary data for each agent, as reported in Table 1 of [EnergyShield-ICCPS23]. This data includes average center deviance (CD), Track Completion Rate (TCR) and average energy consumption (E). These files are output as:
+The primary outputs of this script are a collection of `*.CSV` files containing summary data for each agent, as reported in Table 1 of [ES23]. This data includes average center deviance (CD), Track Completion Rate (TCR) and average energy consumption (E). These files are output as:
 
 ```Bash
 $ES_PATH/container_results/stats_for_casc_agent_1_new.csv
