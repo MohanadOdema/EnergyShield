@@ -31,6 +31,7 @@ RUN ssh-keygen -t rsa -q -f /home/${USER_NAME}/.ssh/id_rsa -N ""
 RUN cat /home/${USER_NAME}/.ssh/id_rsa.pub >> /home/${USER_NAME}/.ssh/authorized_keys
 
 RUN echo "export TF_CPP_MIN_LOG_LEVEL=3" >> /home/${USER_NAME}/.bashrc
+RUN echo "set-window-option -g mode-keys vi" >> /home/${USER_NAME}/.tmux.conf
 
 COPY --chown=${UID}:${GID} . /home/${USER_NAME}/EnergyShield
 
