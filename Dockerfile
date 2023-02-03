@@ -9,6 +9,7 @@ ARG CORES
 # RUN useradd -rm -d /home/${USER_NAME} -s /bin/bash -g ${USER_NAME} -G sudo -u ${UID} ${USER_NAME}
 RUN groupmod --gid $GID ${USER_NAME} && \
     usermod --uid $UID ${USER_NAME} && \
+    mkdir -p /home/${USER_NAME}/EnergyShield && \
     mv /home/${USER_NAME}/custom/models* /home/${USER_NAME}/EnergyShield/models && \
     chown -R ${UID}:${GID} /home/${USER_NAME}
 RUN usermod -a -G sudo ${USER_NAME}
