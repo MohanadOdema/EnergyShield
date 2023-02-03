@@ -232,14 +232,41 @@ The raw data from this experiment is similarly placed in `$ES_PATH/container_res
 
 ## 5. Experiment 3 - Comparison Between Multiple Controllers
 
-This last script generates a `.csv` file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
+In this experiment, we again compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; however, in this experiment, we compared this performance between different NN controllers (four total, including the one used in Experiment 1). Hence, this experiment effectively amounts to re-running Experiment 1 on three additional RL-trained NN controllers; see [EnergyShield-ICCPS2023], Section 5.4. As before, this artifact reuses the same track and NN controllers from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
+
+> **NOTE:** To get complete results you should run Experiment 1 first.
+
+<!-- This last script generates a `.csv` file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: -->
+
+To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 _(iii)_), and execute the following commands in the **container**'s bash shell:
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
 # Run Experiment 3 generate model statistics
-./scripts/exp3_generate_results.sh
+./scripts/run_exp3.sh NUM_EPS
 ```
-The results will be displayed in the terminal and saved in `.csv` format under the path `$ES_PATH/container_results/stats_for_casc_agent_1_new.csv`. 
+`NUM_EPS` is an optional argument that has a similar interpretation to Experiment 1 (default `NUM_EPS=3`), but here it represents the (common) number of episodes to be run on _each_ of the other three agents.
+
+> **NOTE:**  Running this script should take about three times as long as running Experiment 1 for the same number of episodes.
+
+> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
+
+> **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts. However, to incorporate the results of Experiment 1, do not _remove_ the container between runs of `run_exp1.sh` and `run_exp3.sh`.
+
+> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see Section 2 _(iv)_). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in Section 2 _(iv)_.
+
+The primary outputs of this script are a collection of `*.CSV` files containing summary data for each agent, as reported in Table 1 of [EnergyShield-ICCPS23]. This data includes average center deviance (CD), Track Completion Rate (TCR) and average energy consumption (E). These files are output as:
+
+```Bash
+$ES_PATH/container_results/stats_for_casc_agent_1_new.csv
+$ES_PATH/container_results/stats_for_casc_agent_2_new.csv
+$ES_PATH/container_results/stats_for_casc_agent_3_new.csv
+$ES_PATH/container_results/stats_for_casc_agent_4_new.csv
+```
+
+The number in each file name matches the data to the corresponding Controller 1 through 4 as indicated in Table 1. Since Controller 1 was used in Experiment 1, the summary data in `stats_for_casc_agent_1_new.csv` is derived from the output of `run_exp1.sh`.
+
+The raw data for each additional agent is likewise output to `$ES_PATH/container_results/raw_data`, with one folder for each of these additional agents. See Section 6 for a description of the structure and format of this data.
 
 <!-- can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to generate our exact numbers. -->
 
