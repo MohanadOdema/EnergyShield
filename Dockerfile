@@ -7,8 +7,10 @@ ARG CORES
 
 # RUN addgroup --gid ${GID} ${USER_NAME}
 # RUN useradd -rm -d /home/${USER_NAME} -s /bin/bash -g ${USER_NAME} -G sudo -u ${UID} ${USER_NAME}
-RUN groupmod --gid $GID ${USER_NAME}
-RUN usermod --uid $UID ${USER_NAME}
+RUN groupmod --gid $GID ${USER_NAME} && \
+    usermod --uid $UID ${USER_NAME} && \
+    mv /home/${USER_NAME}/custom/models* /home/${USER_NAME}/EnergyShield/models && \
+    chown -R ${UID}:${GID} /home/${USER_NAME}
 RUN usermod -a -G sudo ${USER_NAME}
 RUN echo "${USER_NAME}:${USER_NAME}" | chpasswd
 
@@ -34,9 +36,9 @@ COPY --chown=${UID}:${GID} . /home/${USER_NAME}/EnergyShield
 
 USER root
 
-RUN mv /home/${USER_NAME}/custom/models* /home/${USER_NAME}/EnergyShield/models
+# RUN mv /home/${USER_NAME}/custom/models* /home/${USER_NAME}/EnergyShield/models
 
-RUN chown -R ${UID}:${GID} /home/${USER_NAME}
+# RUN chown -R ${UID}:${GID} /home/${USER_NAME}
 
 COPY ./DockerConfig/startup.sh /usr/local/bin/startup.sh
 RUN chmod 755 /usr/local/bin/startup.sh
