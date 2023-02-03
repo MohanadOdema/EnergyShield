@@ -75,11 +75,10 @@ Choose an install location on the host:
 INSTALL_LOCATION=/path/to/some/place/convenient
 cd "$INSTALL_LOCATION"
 ```
-EnergyShield will be installed on the **host** at:
 <!-- <br>
-<br>
 <br> -->
 
+EnergyShield will be installed on the **host** at:
 ```Bash
 ES_PATH="$INSTALL_LOCATION/EnergyShield"
 ```
