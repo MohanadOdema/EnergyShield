@@ -11,21 +11,21 @@ which is appended to this document, and hereafter referred to as [EnergyShield-I
 
 [EnergyShield-ICCPS2023] contains a number of experiments showing the efficacy of EnergyShield in the [Carla](https://carla.org) simulation environment. This README describes how to replicate those results using code packaged in a [Docker](https://docs.docker.com/engine/) image. In particular, this artifact reruns from scratch the following experiments from [EnergyShield-ICCPS2023]:
 
-	(Experiment 1) Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2)
-	(Experiment 2) Performance Gains from EnergyShield given wireless channel variation (Section 5.3)
-	(Experiment 3) EnergyShield generality to other DRL agents (Section 5.4) 
+	Experiment 1: Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs (Section 5.2, [EnergyShield-ICCPS2023])
+	Experiment 2: Performance Gains from EnergyShield given wireless channel variation (Section 5.3, [EnergyShield-ICCPS2023])
+	Experiment 3: EnergyShield generality to other DRL agents (Section 5.4, [EnergyShield-ICCPS2023]) 
 
 For each of these experiments, this artifact re-generates both new raw data and the analogous plots shown in [EnergyShield-ICCPS2023].
 
 ## Contents
 
-0. Terminology
-1. System Requirements
-2. Setup
-3. Experiment 1 - Energy Efficiency and Safety Evaluation
-4. Experiment 2 - Performance under wireless channel variation
-5. Experiment 3 - Comparison Between Multiple Controllers
-6. Appendix
+0. [Terminology](#0-terminology)
+1. [System Requirements](#1-system-requirements)
+2. [Setup](#2-setup)
+3. [Experiment 1 - Energy Efficiency and Safety Evaluation](#3-experiment-1---energy-efficiency-and-safety-evaluation)
+4. [Experiment 2 - Performance under wireless channel variation](#4-experiment-2---performance-under-wireless-channel-variation)
+5. [Experiment 3 - Comparison Between Multiple Controllers](#5-experiment-3---comparison-between-multiple-controllers)
+6. [Appendix](#6-appendix)
 
 ## 0. Terminology
 
@@ -96,7 +96,7 @@ cd EnergyShield
 
 ### _(iii) Starting a Docker Container_
 
-First, make sure you have successfully built an EnergyShield Docker image. See section _(ii)_ above.
+First, make sure you have successfully built an EnergyShield Docker image. See [Section 2 _(ii)_](#ii-installing-energyshieldbuilding-the-docker-image) above.
 
 Then to start the EnergyShield Docker container, execute the following in a Bash shell on the host (from `$ES_PATH`):
 
@@ -119,7 +119,7 @@ where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
 
 ### _(iv) Testing the Container_
 
-First, make sure you have an EnergyShield container running. See section _(iii)_ above.
+First, make sure you have an EnergyShield container running. See [Section 2 _(iii)_](#iii-starting-a-docker-container) above.
 
 Then from the **container**'s Bash shell execute:
 
@@ -135,7 +135,7 @@ You should see output listing two processes related to [Carla](https://carla.org
 ```
 > **WARNING:** if the above command produces no output or output unlike the above, then Carla is not running, and this repeatability artifact **WILL NOT WORK**.
 >
-> **FIX:** Double check that your host system meets the requirements in Section 1, especially the NVIDIA driver requirements (incorrect NVIDIA drivers are usually what prevents Carla from starting). If your system meets these requirements, then try restarting the container using the following sequence of commands:
+> **FIX:** Double check that your host system meets the requirements in [Section 1](#1-system-requirements), especially the NVIDIA driver requirements (incorrect NVIDIA drivers are usually what prevents Carla from starting). If your system meets these requirements, then try restarting the container using the following sequence of commands:
 > ```Bash
 > # <<< CONTAINER COMMANDS >>>
 > # Exit from the container if it's still running:
@@ -152,7 +152,7 @@ You should see output listing two processes related to [Carla](https://carla.org
 
 In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [EnergyShield-ICCPS2023], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
-To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 _(iii)_), and execute the following commands in the **container**'s bash shell:
+To rerun this experiment, ensure that you have an EnergyShield container running (see [Section 2 _(iii)_](#iii-starting-a-docker-container)), and execute the following commands in the **container**'s bash shell:
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
@@ -164,11 +164,11 @@ cd /home/carla/EnergyShield
 
 > **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 1 hour on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
-> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
+> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see [Section 2 _(iii)_](#iii-starting-a-docker-container)). If the script is successfully running, status information will be output to the console regularly.
 
 > **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts.
 
-> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see Section 2 _(iv)_). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in Section 2 _(iv)_.
+> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see [Section 2 _(iv)_](#iv-testing-the-container)). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in [Section 2 _(iv)_](#iv-testing-the-container).
 
 <!-- `NUM_EPS` is an optional argument describing the number of episodes per experimental configuration (default: 3). Note that although `NUM_EPS` in our paper was 35, we kept it here at 3 to speed up the simulation runs for the evaluators. From our experience, running the script with `NUM_EPS` set to 3 takes around 1 hour of computation time on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super. 
 
@@ -184,7 +184,7 @@ $ES_PATH/container_results/Fig7_Ergy_v_dist.pdf
 ```
 Their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. For reference, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in `$ES_PATH/paper_results`.
 
-This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, control actions, etc. of the vehicle); this data is placed in `$ES_PATH/container_results/raw_data`; the analogous raw data from our simulations can be found in `$ES_PATH/paper_results/raw_data` for comparison. The format and structure of this data is described in the subsequent Section 6.
+This script also outputs the raw Carla simulation data of each episode (i.e. the simulation time-stamped positions, control actions, etc. of the vehicle); this data is placed in `$ES_PATH/container_results/raw_data`; the analogous raw data from our simulations can be found in `$ES_PATH/paper_results/raw_data` for comparison. The format and structure of this data is described in the subsequent [Appendix](#6-appendix).
 
 Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics of raw data noted above; these summaries are produced as several `.CSV` files output to `$ES_PATH/container_results/distance/*.csv`.
 
@@ -199,22 +199,22 @@ Finally, Figure 7 (Energy vs. distance) is derived from some summary statistics 
 In this experiment, we evaluated the energy savings provided by EnergyShield as a function of different wireless-link conditions to the edge; see [EnergyShield-ICCPS2023], Section 5.3. This experiment uses mostly the same setup as Experiment 1, including the same NN controller and track. However, in this experiment, batches of episodes are run under five different simulated wireless-link conditions. As before, this artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
 <!-- In 5.3, Additional Carla simulations are conducted to evaluate EnergyShield's resilience under variations of wireless network conditions, which are represented in this paper by the parameters of channel throughput and queuing delays. To run these additional simulations, users can run the following script: -->
-To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 _(iii)_), and execute the following commands in the **container**'s bash shell
+To rerun this experiment, ensure that you have an EnergyShield container running (see [Section 2 _(iii)_](#iii-starting-a-docker-container)), and execute the following commands in the **container**'s bash shell
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
 # Run Experiment 2 Carla simulations:
 ./scripts/run_exp2.sh NUM_EPS
 ```
-The optional parameter `NUM_EPS` has a similar interpretation to Experiment 1 (default `NUM_EPS=3`), but here it represents the number of episodes to run under each wireless-link condition (of which this experiment contains five).
+The optional parameter `NUM_EPS` has a similar interpretation to [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) (default `NUM_EPS=3`), but here it represents the number of episodes to run under each wireless-link condition (of which this experiment contains five).
 
 > **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 2 - 3 hours on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
-> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
+> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see [Section 2 _(iii)_](#iii-starting-a-docker-container)). If the script is successfully running, status information will be output to the console regularly.
 
 > **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts.
 
-> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see Section 2 _(iv)_). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in Section 2 _(iv)_.
+> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see [Section 2 _(iv)_](#iv-testing-the-container)). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in [Section 2 _(iv)_](#iv-testing-the-container).
 
 <!-- This script will instantiate 5 additional experiments of varying wireless conditions. Once the simulations are terminated, their corresponding raw data files are copied to `../results/raw_data`, which are then used to generate the box and whisker plots of Figures 8 and 9 describing additional offloading windows (%) and the normalized energy consumption (w.r.t local execution) under different wireless conditions:  -->
 <!-- ```Bash
@@ -228,32 +228,32 @@ $ES_PATH/container_results/Fig9_energy.pdf
 ```
 As before, their filenames match them to the figures that appear in [EnergyShield-ICCPS2023]. Likewise, the figures from [EnergyShield-ICCPS2023] are also available with the same filenames in `$ES_PATH/paper_results`.
 
-The raw data from this experiment is similarly placed in `$ES_PATH/container_results/raw_data`, and the analogous raw data from our simulations is in `$ES_PATH/paper_results/raw_data` for comparison. See the the subsequent Section 6 for a description of the format and structure of this raw data.
+The raw data from this experiment is similarly placed in `$ES_PATH/container_results/raw_data`, and the analogous raw data from our simulations is in `$ES_PATH/paper_results/raw_data` for comparison. See the the subsequent [Appendix](#6-appendix) for a description of the format and structure of this raw data.
 
 ## 5. Experiment 3 - Comparison Between Multiple Controllers
 
-In this experiment, we again compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; however, in this experiment, we compared this performance between different NN controllers (four total, including the one used in Experiment 1). Hence, this experiment effectively amounts to re-running Experiment 1 on three additional RL-trained NN controllers; see [EnergyShield-ICCPS2023], Section 5.4. As before, this artifact reuses the same track and NN controllers from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
+In this experiment, we again compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; however, in this experiment, we compared this performance between different NN controllers (four total, including the one used in [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation)). Hence, this experiment effectively amounts to re-running [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) on three additional RL-trained NN controllers; see [EnergyShield-ICCPS2023], Section 5.4. As before, this artifact reuses the same track and NN controllers from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.
 
 > **NOTE:** To get complete results you should run Experiment 1 first.
 
 <!-- This last script generates a `.csv` file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: -->
 
-To rerun this experiment, ensure that you have an EnergyShield container running (see Section 2 _(iii)_), and execute the following commands in the **container**'s bash shell:
+To rerun this experiment, ensure that you have an EnergyShield container running (see [Section 2 _(iii)_](#iii-starting-a-docker-container)), and execute the following commands in the **container**'s bash shell:
 ```Bash
 # <<< CONTAINER COMMANDS >>>
 cd /home/carla/EnergyShield
 # Run Experiment 3 generate model statistics
 ./scripts/run_exp3.sh NUM_EPS
 ```
-`NUM_EPS` is an optional argument that has a similar interpretation to Experiment 1 (default `NUM_EPS=3`), but here it represents the (common) number of episodes to be run on _each_ of the other three agents.
+`NUM_EPS` is an optional argument that has a similar interpretation to [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) (default `NUM_EPS=3`), but here it represents the (common) number of episodes to be run on _each_ of the other three agents.
 
-> **NOTE:**  Running this script should take about three times as long as running Experiment 1 for the same number of episodes.
+> **NOTE:**  Running this script should take about three times as long as running [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) for the same number of episodes.
 
-> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see Section 1). If the script is successfully running, status information will be output to the console regularly.
+> **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see [Section 2 _(iii)_](#iii-starting-a-docker-container)). If the script is successfully running, status information will be output to the console regularly.
 
-> **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts. However, to incorporate the results of Experiment 1, do not _remove_ the container between runs of `run_exp1.sh` and `run_exp3.sh`.
+> **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts. However, to incorporate the results of [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation), do not _remove_ the container between runs of `run_exp1.sh` and `run_exp3.sh`.
 
-> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see Section 2 _(iv)_). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in Section 2 _(iv)_.
+> **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see [Section 2 _(iv)_](#iv-testing-the-container)). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in [Section 2 _(iv)_](#iv-testing-the-container).
 
 The primary outputs of this script are a collection of `*.CSV` files containing summary data for each agent, as reported in Table 1 of [EnergyShield-ICCPS23]. This data includes average center deviance (CD), Track Completion Rate (TCR) and average energy consumption (E). These files are output as:
 
@@ -264,9 +264,9 @@ $ES_PATH/container_results/stats_for_casc_agent_3_new.csv
 $ES_PATH/container_results/stats_for_casc_agent_4_new.csv
 ```
 
-The number in each file name matches the data to the corresponding Controller 1 through 4 as indicated in Table 1. Since Controller 1 was used in Experiment 1, the summary data in `stats_for_casc_agent_1_new.csv` is derived from the output of `run_exp1.sh`.
+The number in each file name matches the data to the corresponding Controller 1 through 4 as indicated in Table 1. Since Controller 1 was used in [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation), the summary data in `stats_for_casc_agent_1_new.csv` is derived from the output of `run_exp1.sh`.
 
-The raw data for each additional agent is likewise output to `$ES_PATH/container_results/raw_data`, with one folder for each of these additional agents. See Section 6 for a description of the structure and format of this data.
+The raw data for each additional agent is likewise output to `$ES_PATH/container_results/raw_data`, with one folder for each of these additional agents. See the [Appendix](#6-appendix) for a description of the structure and format of this data.
 
 <!-- can be set to one of {"casc_agent_1", "casc_agent_2", "casc_agent_3", "casc_agent_4"} to generate our exact numbers. -->
 
