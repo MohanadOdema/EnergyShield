@@ -210,7 +210,7 @@ cd /home/carla/EnergyShield
 ```
 The optional parameter `NUM_EPS` has a similar interpretation to [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation) (default `NUM_EPS=3`), but here it represents the number of episodes to run under each wireless-link condition (of which this experiment contains five).
 
-> **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 2 - 3 hours on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
+> **NOTE:**  Running this script with the default `NUM_EPS=3`  takes around 1 hour on a workstation with 32 GB RAM and NVIDIA GPU 2070 RTX super.
 
 > **NOTE:** When the script finishes, you will be returned to a shell prompt in the container (see [Section 2 _(iii)_](#iii-starting-a-docker-container)). If the script is successfully running, status information will be output to the console regularly.
 
