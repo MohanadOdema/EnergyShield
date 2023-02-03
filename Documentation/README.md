@@ -24,7 +24,7 @@ For each of these experiments, this artifact re-generates both new raw data and 
 2. Setup
 3. Experiment 1 - Energy Efficiency and Safety Evaluation
 4. Experiment 2 - Performance under wireless channel variation
-5. Experiment 3 - Performance Statistics
+5. Experiment 3 - Comparison Between Multiple Controllers
 6. Appendix
 
 ## 0. Terminology
@@ -76,15 +76,27 @@ cd "$HOST_LOCATION"
 
 > **NOTE:** All subsequent **HOST** paths in this readme are assumed to be relative to `$HOST_LOCATION`.
 
-### _(ii) Starting the Docker Container_
+### _(ii) Building the Docker Image_
 
-To start the EnergyShield Docker container, execute the following in a Bash shell on the host (from `$HOST_LOCATION`):
+To build the EnergyShield Docker image, execute the following in a Bash shell on the host (from `$HOST_LOCATION`):
 
 ```Bash
 # <<< HOST COMMANDS >>>
 git clone --recursive https://github.com/MohanadOdema/EnergyShield
 cd EnergyShield
 ./dockerbuild.sh # WARNING: downloads ~30GB of data, and may take > 1 hour even after download!
+```
+
+> **NOTE:** `dockerbuild.sh` only ever needs to be run once per host user account, unless an updated version is released.
+
+### _(iii) Starting a Docker Container_
+
+First, make sure you have successfully built an EnergyShield Docker image. See section _(ii)_ above.
+
+Then to start the EnergyShield Docker container, execute the following in a Bash shell on the host (from `$HOST_LOCATION`):
+
+```Bash
+# <<< HOST COMMANDS >>>
 ./dockerrun.sh --interactive --start-carla
 ```
 This should place you at a Bash shell inside a container with EnergyShield installed. The container's Bash shell will have a prompt that looks like:
@@ -99,11 +111,12 @@ where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
 > # <<< HOST COMMANDS >>>
 > ./dockerrun.sh --interactive --start-carla
 > ```
-> **NOTE:** There is no need to rerun `dockerbuild.sh` when restarting the container in this fashion.
 
-### _(iii) Testing the Container_
+### _(iv) Testing the Container_
 
-From the **container**'s Bash shell execute:
+First, make sure you have an EnergyShield container running. See section _(iii)_ above.
+
+Then from the **container**'s Bash shell execute:
 
 ```Bash
 # <<< CONTAINER COMMANDS >>>
@@ -115,7 +128,7 @@ You should see output listing two processes related to [Carla](https://carla.org
      45 pts/0    00:00:00 CarlaUE4.sh
      52 pts/0    00:01:00 CarlaUE4-Linux-
 ```
-> **WARNING:** if the above command produces no output, then Carla is not running, and this repeatability artifact **WILL NOT WORK**.
+> **WARNING:** if the above command produces no output or output unlike the above, then Carla is not running, and this repeatability artifact **WILL NOT WORK**.
 >
 > **FIX:** Double check that your host system meets the requirements in Section 1, especially the NVIDIA driver requirements (incorrect NVIDIA drivers are usually what prevents Carla from starting). If your system meets these requirements, then try restarting the container using the following sequence of commands:
 > ```Bash
@@ -203,7 +216,7 @@ As before, their filenames match them to the figures that appear in [EnergyShiel
 
 The raw data from this experiment is similarly placed in `$HOST_LOCATION/container_results/raw_data`, and the analogous raw data from our simulations is in `$HOST_LOCATION/paper_results/raw_data` for comparison. See the the subsequent section **6. Appendix** for a description of the format and structure of this raw data.
 
-## 5. Experiment 3 - Performance Statistics
+## 5. Experiment 3 - Comparison Between Multiple Controllers
 
 This last script generates a `.csv` file describing the performance statistics of the user's model in accordance with the metrics in Table 1. These performance metrics are the average center deviance (CD), Track Completion Rate (TCR), and average energy consumption (E) based on the generated results from the users' experiments as follows: 
 ```Bash
