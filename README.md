@@ -7,7 +7,7 @@ EnergyShield is described in the paper:
 >_EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency._  
 >Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al Faruque. ICCPS 2023: 14th ACM/IEEE International Conference on Cyber-Physical Systems.
 
-which is appended to this document, and hereafter referred to as [ES23].
+which is attached to this document, and hereafter referred to as [ES23].
 
 [ES23] contains a number of experiments showing the efficacy of EnergyShield in the [Carla](https://carla.org) simulation environment. This README describes how to replicate those results using code packaged in a [Docker](https://docs.docker.com/engine/) image. In particular, this artifact reruns from scratch the following experiments from [ES23]:
 
@@ -75,8 +75,8 @@ Choose an install location on the host:
 INSTALL_LOCATION=/path/to/some/place/convenient
 cd "$INSTALL_LOCATION"
 ```
-<!-- <br>
-<br> -->
+<br>
+<br>
 
 EnergyShield will be installed on the **host** at:
 ```Bash
@@ -115,9 +115,9 @@ This should place you at a Bash shell inside a container with EnergyShield insta
 carla@ece2ade62bc5:~$ 
 ```
 where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
-<!-- <br>
 <br>
-<br> -->
+<br>
+<br>
 
 > **WARNING:** if you exit the container's Bash shell, then the **container and all experiments will stop**. You may restart the container with the **host** command:
 > ```Bash
@@ -155,9 +155,9 @@ You should see output listing two processes related to [Carla](https://carla.org
 > ./dockerrun.sh --remove # Remove any existsing container
 > ./dockerrun.sh --interactive --start-carla
 > ```
-<!-- <br>
 <br>
-<br> -->
+<br>
+<br>
 
 ## 3. Experiment 1 - Energy Efficiency and Safety Evaluation
 
@@ -218,9 +218,9 @@ The optional parameter `NUM_EPS` has a similar interpretation to [Experiment 1](
 > **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see [Section 2 _(iv)_](#iv-testing-the-container)). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in [Section 2 _(iv)_](#iv-testing-the-container).
 
 The primary outputs of this script are figures that summarize the energy performance of EnergyShield under these different wireless conditions, including the number of local-execution fallbacks required. These figures can be found on the **HOST** at the following paths:
-<!-- <br>
 <br>
-<br> -->
+<br>
+<br>
 
 ```Bash
 $ES_PATH/container_results/Fig8_windows.pdf
@@ -251,9 +251,9 @@ cd /home/carla/EnergyShield
 
 > **NOTE:**  Experiments can be run consecutively in the same container without interruption, or in between container restarts. However, to incorporate the results of [Experiment 1](#3-experiment-1---energy-efficiency-and-safety-evaluation), do not _remove_ the container between runs of `run_exp1.sh` and `run_exp3.sh`.
 
-<!-- <br>
 <br>
-<br> -->
+<br>
+<br>
 
 > **WARNING:** Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see [Section 2 _(iv)_](#iv-testing-the-container)). This is a [known issue](https://github.com/carla-simulator/carla/issues/3430) in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in [Section 2 _(iv)_](#iv-testing-the-container).
 

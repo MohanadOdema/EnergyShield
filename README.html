@@ -48,7 +48,7 @@
 <p><em>EnergyShield: Provably-Safe Offloading of Neural Network Controllers for Energy Efficiency.</em><br>
 Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al Faruque. ICCPS 2023: 14th ACM/IEEE International Conference on Cyber-Physical Systems.</p>
 </blockquote>
-<p>which is appended to this document, and hereafter referred to as [ES23].</p>
+<p>which is attached to this document, and hereafter referred to as [ES23].</p>
 <p>[ES23] contains a number of experiments showing the efficacy of EnergyShield in the <a href="https://carla.org">Carla</a> simulation environment. This README describes how to replicate those results using code packaged in a <a href="https://docs.docker.com/engine/">Docker</a> image. In particular, this artifact reruns from scratch the following experiments from [ES23]:</p>
 <p>    <a href="#3-experiment-1---energy-efficiency-and-safety-evaluation"><strong>Experiment 1 <em>[ES23, Section 5.2]</em></strong></a>: <em>Energy Efficiency and Safety Evaluation of EnergyShield through Carla Simulation runs</em></p>
 <p>    <a href="#4-experiment-2---performance-under-wireless-channel-variation"><strong>Experiment 2  <em>[ES23, Section 5.3]</em></strong></a> : <em>Performance Gains from EnergyShield given wireless channel variation</em></p>
@@ -102,10 +102,9 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 INSTALL_LOCATION=/path/to/some/place/convenient
 <span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$INSTALL_LOCATION</span>&quot;</span>
 </code></pre>
-<p>EnergyShield will be installed on the <strong>host</strong> at:</p>
-<!-- <br>
 <br>
-<br> -->
+<br>
+<p>EnergyShield will be installed on the <strong>host</strong> at:</p>
 <pre><code class="language-Bash">ES_PATH=<span class="hljs-string">&quot;<span class="hljs-variable">$INSTALL_LOCATION</span>/EnergyShield&quot;</span>
 </code></pre>
 <blockquote>
@@ -131,10 +130,10 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 <p>This should place you at a Bash shell inside a container with EnergyShield installed. The container's Bash shell will have a prompt that looks like:</p>
 <pre><code class="language-Bash">carla@ece2ade62bc5:~$ 
 </code></pre>
-<p>where <code>ece2ade62bc5</code> is a unique container id (i.e. yours will be different).</p>
-<!-- <br>
+<p>where <code>ece2ade62bc5</code> is a unique container id (i.e. yours will be different).
 <br>
-<br> -->
+<br>
+<br></p>
 <blockquote>
 <p><strong>WARNING:</strong> if you exit the container's Bash shell, then the <strong>container and all experiments will stop</strong>. You may restart the container with the <strong>host</strong> command:</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
@@ -164,9 +163,9 @@ ps | grep Carla
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
 </blockquote>
-<!-- <br>
 <br>
-<br> -->
+<br>
+<br>
 <h2 id="3-experiment-1---energy-efficiency-and-safety-evaluation">3. Experiment 1 - Energy Efficiency and Safety Evaluation</h2>
 <p>In this experiment, we compared EnergyShield with purely on-vehicle NN controller evaluation, both in terms of energy consumption and safety; see [ES23], Section 5.2. This comparison was made using a single RL-trained NN controller driving a fixed track; safety entails avoiding randomly spawned stationary obstacles along this track. This artifact reuses the same track and NN controller from our experiment, but the obstacle locations and instantaneous wireless-link performance are randomized.</p>
 <p>To rerun this experiment, ensure that you have an EnergyShield container running (see <a href="#iii-starting-a-docker-container">Section 2 <em>(iii)</em></a>), and execute the following commands in the <strong>container</strong>'s bash shell:</p>
@@ -221,10 +220,10 @@ ps | grep Carla
 <blockquote>
 <p><strong>WARNING:</strong> Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see <a href="#iv-testing-the-container">Section 2 <em>(iv)</em></a>). This is a <a href="https://github.com/carla-simulator/carla/issues/3430">known issue</a> in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in <a href="#iv-testing-the-container">Section 2 <em>(iv)</em></a>.</p>
 </blockquote>
-<p>The primary outputs of this script are figures that summarize the energy performance of EnergyShield under these different wireless conditions, including the number of local-execution fallbacks required. These figures can be found on the <strong>HOST</strong> at the following paths:</p>
-<!-- <br>
+<p>The primary outputs of this script are figures that summarize the energy performance of EnergyShield under these different wireless conditions, including the number of local-execution fallbacks required. These figures can be found on the <strong>HOST</strong> at the following paths:
 <br>
-<br> -->
+<br>
+<br></p>
 <pre><code class="language-Bash"><span class="hljs-variable">$ES_PATH</span>/container_results/Fig8_windows.pdf
 <span class="hljs-variable">$ES_PATH</span>/container_results/Fig9_energy.pdf
 </code></pre>
@@ -251,9 +250,9 @@ ps | grep Carla
 <blockquote>
 <p><strong>NOTE:</strong>  Experiments can be run consecutively in the same container without interruption, or in between container restarts. However, to incorporate the results of <a href="#3-experiment-1---energy-efficiency-and-safety-evaluation">Experiment 1</a>, do not <em>remove</em> the container between runs of <code>run_exp1.sh</code> and <code>run_exp3.sh</code>.</p>
 </blockquote>
-<!-- <br>
 <br>
-<br> -->
+<br>
+<br>
 <blockquote>
 <p><strong>WARNING:</strong> Occasionally, the experiment script may fail to connect to Carla even if Carla is running (see <a href="#iv-testing-the-container">Section 2 <em>(iv)</em></a>). This is a <a href="https://github.com/carla-simulator/carla/issues/3430">known issue</a> in Carla on slow host machines; if it occurs, simply re-run the script above. If this fails, try restarting the container according to the directions in <a href="#iv-testing-the-container">Section 2 <em>(iv)</em></a>.</p>
 </blockquote>
