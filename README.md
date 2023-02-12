@@ -60,7 +60,8 @@ Commands meant to be executed from a shell on the host or the container will be 
 3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**; also known as Docker Server but **not** [Docker Desktop](https://docker.com)
 4. A recent version of `git` on the path
 5. The `bash` shell installed in `/bin/bash`
-6. A user account that can run Docker containers in privileged mode (i.e. with the [`--privileged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
+6. A user account that is a member of the `docker` group (see [Docker post-install instructions](https://docs.docker.com/engine/install/linux-postinstall/))
+7. A user account that can run Docker containers in privileged mode (i.e. with the [`--privileged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
 
 > **WARNING:** NVIDIA driver version >=515.76 is a **STRICT REQUIREMENT**. This repeatability artifact **WILL NOT WORK** unless the host has official NVIDIA drivers version 515.76 or higher installed.
 
@@ -87,7 +88,7 @@ ES_PATH="$INSTALL_LOCATION/EnergyShield"
 
 ### _(ii) Installing EnergyShield/Building the Docker Image_
 
-To install EnergyShield and build the EnergyShield Docker image, execute the following in a Bash shell on the host (from `$INSTALL_LOCATION`):
+To install EnergyShield and build the EnergyShield Docker image, execute the following in a non-root Bash shell on the host (from `$INSTALL_LOCATION`):
 
 ```Bash
 # <<< HOST COMMANDS >>>
@@ -96,6 +97,7 @@ git clone --recursive https://github.com/MohanadOdema/EnergyShield
 cd EnergyShield
 ./dockerbuild.sh # WARNING: downloads ~30GB of data, and may take > 1 hour even after download!
 ```
+> **NOTE:** These and all subsequent **host** commands should be run from a normal user account; e.g., not with `sudo`. This requires that the current user account has permissions to execute the `docker` command. See [Section 1, Software Requirements #6](#1-system-requirements).
 
 > **NOTE:** `dockerbuild.sh` only ever needs to be run once per host user account, unless an updated version is released.
 
@@ -103,7 +105,7 @@ cd EnergyShield
 
 First, make sure you have successfully built an EnergyShield Docker image. See [Section 2 _(ii)_](#ii-installing-energyshieldbuilding-the-docker-image) above.
 
-Then to start the EnergyShield Docker container, execute the following in a Bash shell on the host (from `$ES_PATH`):
+Then to start the EnergyShield Docker container, execute the following in a non-root Bash shell on the host (from `$ES_PATH`):
 
 ```Bash
 # <<< HOST COMMANDS >>>
@@ -119,7 +121,7 @@ where `ece2ade62bc5` is a unique container id (i.e. yours will be different).
 <br>
 <br>
 
-> **WARNING:** if you exit the container's Bash shell, then the **container and all experiments will stop**. You may restart the container with the **host** command:
+> **WARNING:** if you exit the container's Bash shell, then the **container and all experiments will stop**. You may restart the container with the **host** command (from a non-root Bash shell at `$ES_PATH`):
 > ```Bash
 > # <<< HOST COMMANDS >>>
 > ./dockerrun.sh --interactive --start-carla

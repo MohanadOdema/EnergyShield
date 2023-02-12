@@ -90,6 +90,7 @@ Mohanad Odema, James Ferlez, Goli Vaisi, Yasser Shoukry and Mohammad Abdullah Al
 <li>A recent version of <a href="https://docs.docker.com/engine/">Docker Engine</a> <strong>(version &gt;= 19.03)</strong>; also known as Docker Server but <strong>not</strong> <a href="https://docker.com">Docker Desktop</a></li>
 <li>A recent version of <code>git</code> on the path</li>
 <li>The <code>bash</code> shell installed in <code>/bin/bash</code></li>
+<li>A user account that is a member of the <code>docker</code> group (see <a href="https://docs.docker.com/engine/install/linux-postinstall/">Docker post-install instructions</a>)</li>
 <li>A user account that can run Docker containers in privileged mode (i.e. with the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code>--privileged</code> switch</a>)</li>
 </ol>
 <blockquote>
@@ -111,7 +112,7 @@ INSTALL_LOCATION=/path/to/some/place/convenient
 <p><strong>NOTE:</strong> All subsequent <strong>HOST</strong> paths in this readme are assumed to be relative to <code>$ES_PATH</code> unless otherwise specified.</p>
 </blockquote>
 <h3 id="ii-installing-energyshieldbuilding-the-docker-image"><em>(ii) Installing EnergyShield/Building the Docker Image</em></h3>
-<p>To install EnergyShield and build the EnergyShield Docker image, execute the following in a Bash shell on the host (from <code>$INSTALL_LOCATION</code>):</p>
+<p>To install EnergyShield and build the EnergyShield Docker image, execute the following in a non-root Bash shell on the host (from <code>$INSTALL_LOCATION</code>):</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 <span class="hljs-built_in">cd</span> <span class="hljs-string">&quot;<span class="hljs-variable">$INSTALL_LOCATION</span>&quot;</span>
 git <span class="hljs-built_in">clone</span> --recursive https://github.com/MohanadOdema/EnergyShield
@@ -119,11 +120,14 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 ./dockerbuild.sh <span class="hljs-comment"># WARNING: downloads ~30GB of data, and may take &gt; 1 hour even after download!</span>
 </code></pre>
 <blockquote>
+<p><strong>NOTE:</strong> These and all subsequent <strong>host</strong> commands should be run from a normal user account; e.g., not with <code>sudo</code>. This requires that the current user account has permissions to execute the <code>docker</code> command. See <a href="#1-system-requirements">Section 1, Software Requirements #6</a>.</p>
+</blockquote>
+<blockquote>
 <p><strong>NOTE:</strong> <code>dockerbuild.sh</code> only ever needs to be run once per host user account, unless an updated version is released.</p>
 </blockquote>
 <h3 id="iii-starting-a-docker-container"><em>(iii) Starting a Docker Container</em></h3>
 <p>First, make sure you have successfully built an EnergyShield Docker image. See <a href="#ii-installing-energyshieldbuilding-the-docker-image">Section 2 <em>(ii)</em></a> above.</p>
-<p>Then to start the EnergyShield Docker container, execute the following in a Bash shell on the host (from <code>$ES_PATH</code>):</p>
+<p>Then to start the EnergyShield Docker container, execute the following in a non-root Bash shell on the host (from <code>$ES_PATH</code>):</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
@@ -135,7 +139,7 @@ git <span class="hljs-built_in">clone</span> --recursive https://github.com/Moha
 <br>
 <br></p>
 <blockquote>
-<p><strong>WARNING:</strong> if you exit the container's Bash shell, then the <strong>container and all experiments will stop</strong>. You may restart the container with the <strong>host</strong> command:</p>
+<p><strong>WARNING:</strong> if you exit the container's Bash shell, then the <strong>container and all experiments will stop</strong>. You may restart the container with the <strong>host</strong> command (from a non-root Bash shell at <code>$ES_PATH</code>):</p>
 <pre><code class="language-Bash"><span class="hljs-comment"># &lt;&lt;&lt; HOST COMMANDS &gt;&gt;&gt;</span>
 ./dockerrun.sh --interactive --start-carla
 </code></pre>
