@@ -10,7 +10,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SYSTEM_TYPE=$(uname)
 PORT=5003
 HTTPPORT="2000-2002"
-GPUS="--gpus all --runtime=nvidia"
+GPUS="--gpus all"
 INTERACTIVE="-d"
 SERVER="run"
 ATTACH=""
