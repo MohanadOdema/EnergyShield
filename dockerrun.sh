@@ -8,7 +8,7 @@ gid=`id -g`
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 SYSTEM_TYPE=$(uname)
-PORT=5000
+PORT=5003
 HTTPPORT="2000-2002"
 GPUS="--gpus all --runtime=nvidia"
 INTERACTIVE="-d"
