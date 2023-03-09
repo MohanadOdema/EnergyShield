@@ -58,10 +58,11 @@ Commands meant to be executed from a shell on the host or the container will be 
 1. Un-virtualized Linux operating system; headless and cloud (e.g. Amazon EC2/Microsoft Azure) installs will work (tested on Ubuntu 20.04, but any distribution that meets the remaining requirements should work)
 2. Official [Linux NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html) **(version >= 515.76 is \*\*_REQUIRED_\*\*)**
 3. A recent version of [Docker Engine](https://docs.docker.com/engine/) **(version >= 19.03)**; also known as Docker Server but **not** [Docker Desktop](https://docker.com)
-4. A recent version of `git` on the path
-5. The `bash` shell installed in `/bin/bash`
-6. A user account that is a member of the `docker` group (see [Docker post-install instructions](https://docs.docker.com/engine/install/linux-postinstall/))
-7. A user account that can run Docker containers in privileged mode (i.e. with the [`--privileged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
+4. The [NVIDIA container toolkit](https://github.com/NVIDIA/nvidia-docker)
+5. A recent version of `git` on the path
+6. The `bash` shell installed in `/bin/bash`
+7. A user account that is a member of the `docker` group (see [Docker post-install instructions](https://docs.docker.com/engine/install/linux-postinstall/))
+8. A user account that can run Docker containers in privileged mode (i.e. with the [`--privileged` switch](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities))
 
 > **WARNING:** NVIDIA driver version >=515.76 is a **STRICT REQUIREMENT**. This repeatability artifact **WILL NOT WORK** unless the host has official NVIDIA drivers version 515.76 or higher installed.
 
