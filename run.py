@@ -547,7 +547,7 @@ if __name__ == "__main__":
     parser.add_argument("--carla_map", type=str, default='Town04_OPT', help="load map")
     parser.add_argument("--no_rendering", action='store_true', help="disable rendering")
     parser.add_argument("--weather", default='WetCloudySunset', help="set weather preset, use --list to see available presets")
-    parser.add_argument("-display_off", action='store_true', default=True, help='Turn off display running experiments on the server')
+    parser.add_argument("-display_off", action='store_true', default=False, help='Turn off display running experiments on the server')
     parser.add_argument("--port", type=int, default=2000, help='set the port for communicating with the host in case of server operation')
     parser.add_argument("--viz_utils", default=True, help="ignore viz utils to avoid correcting on the server")
 
